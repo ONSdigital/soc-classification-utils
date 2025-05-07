@@ -6,20 +6,17 @@ and performing similarity searches.
 """
 
 import logging
-import pandas as pd
 import uuid
 from typing import Any, Optional, Union
 
 from autocorrect import Speller
-from occupational_classification.hierarchy.soc_hierarchy import SOC, load_hierarchy
-from occupational_classification.meta.socDB import soc_meta
 from langchain.docstore.document import Document
 from langchain_community.embeddings import HuggingFaceEmbeddings, VertexAIEmbeddings
 from langchain_community.vectorstores import Chroma  # pylint: disable=no-name-in-module
+from occupational_classification.hierarchy.soc_hierarchy import SOC
 
 from occupational_classification_utils.utils.soc_data_access import (
     load_soc_index,
-    load_soc_structure,
 )
 
 logger = logging.getLogger(__name__)
@@ -136,7 +133,6 @@ class EmbeddingHandler:
             embedding_function=self.embeddings, persist_directory=self.db_dir
         )
 
-
     def embed_index(  # pylint: disable=too-many-arguments, too-many-positional-arguments
         self,
         from_empty: bool = True,
@@ -182,29 +178,18 @@ class EmbeddingHandler:
                     )
                     ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, line)))
 
-        else:
-            if soc is None:
-                soc_df_input = load_soc_structure(
-                    soc_structure_file or config["lookups"]["soc_structure"]
-                    )
-                soc_df = soc_meta.create_soc_dataframe(soc_df_input)
-                
-                soc_index_df = load_soc_index(
-                    soc_index_file or config["lookups"]["soc_index"]
+        elif soc is None:
+            soc_index_df = load_soc_index(
+                soc_index_file or config["lookups"]["soc_index"]
+            )
+
+            # soc = load_hierarchy(soc_df, soc_index_df)
+            for _, row in soc_index_df.iterrows():
+                docs.append(
+                    Document(page_content=row["title"], metadata={"code": row["code"]})
                 )
-                
-                # soc = load_hierarchy(soc_df, soc_index_df)
-                for _, row in soc_index_df.iterrows():
-                    docs.append(
-                        Document(
-                            page_content=row["title"],
-                            metadata = {
-                                "code": row["code"]
-                            }
-                        )
-                    )
-                    unique_id = str(uuid.uuid4())
-                    ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, unique_id)))
+                unique_id = str(uuid.uuid4())
+                ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, unique_id)))
                 # soc = load_hierarchy(soc_df, soc_index_df)
                 # logger.debug("Loading entries from SOC hierarchy for embedding.")
                 # for _, row in soc.all_leaf_text().iterrows():
