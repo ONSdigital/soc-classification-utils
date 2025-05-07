@@ -5,14 +5,17 @@ Filepaths are defined in config.
 
 import pandas as pd
 
+
 def combine_job_title(row):
+    """Produces full job title wih IND and ADD qualifiers."""
     job_title = ""
-    if pd.notna(row['add']):
+    if pd.notna(row["add"]):
         job_title += f"{row['add']} "
-        job_title += row['natural_word']
-    if pd.notna(row['ind']):
+        job_title += row["natural_word"]
+    if pd.notna(row["ind"]):
         job_title += f" ({row['ind']})"
     return job_title
+
 
 def load_soc_index(filepath: str) -> pd.DataFrame:
     """Load SOC index.
@@ -29,10 +32,7 @@ def load_soc_index(filepath: str) -> pd.DataFrame:
     soc_index_df.columns = [col.lower() for col in soc_index_df.columns]
 
     soc_index_df = soc_index_df.rename(
-        columns={
-            "indexocc_-_natural_word_order": "natural_word",
-            "soc_2020":"code"
-            }
+        columns={"indexocc_-_natural_word_order": "natural_word", "soc_2020": "code"}
     )
 
     soc_index_df = soc_index_df[soc_index_df["code"] != "}}}}"]
