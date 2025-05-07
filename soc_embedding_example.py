@@ -1,3 +1,5 @@
+"""This scripts shows how EmbeddingHandler class is used."""
+
 # ---
 # jupyter:
 #   jupytext:
@@ -13,26 +15,13 @@
 # ---
 
 # %%
-from occupational_classification.hierarchy.soc_hierarchy import SOC, load_hierarchy
-from occupational_classification.meta.socDB import soc_meta
 
 # %%
-from occupational_classification_utils.utils.soc_data_access import (
-    load_soc_index,
-    load_soc_structure,
+from occupational_classification_utils.embed.embedding import (
+    EmbeddingHandler,
 )
 
 # %%
-from occupational_classification_utils.embed.embedding import get_config, EmbeddingHandler
-
-# %%
-get_config()["lookups"]["soc_index"]
-
-# %%
-soc_index = load_soc_index(get_config()["lookups"]["soc_index"])
-
-# %%
-soc_index.sample()
 
 # %%
 EXAMPLE_QUERY = "school teacher primary education"
