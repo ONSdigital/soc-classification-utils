@@ -6,7 +6,7 @@ authors = ["Steve Gibbard <steve.gibbard@ons.gov.uk>"]
 license = "MIT"
 readme = "README.md"
 
-packages = [{ include = "occupational_classification_utils", from = "src" }]
+packages = [{ include = "occupational_classification_utils", from = "src"}]
 
 include = [
   { path = "src/occupational_classification_utils/data", format = "sdist" },
@@ -23,7 +23,6 @@ pandas = "^2.2.3"
 #langchain = "^0.3.21"
 #langchain-community = "^0.3.20"
 langchain = "0.1.0"
-#soc-classification-library = { git = "https://github.com/ONSdigital/soc-classification-library.git", tag = "v0.0.1" } # We will need this, once a release is built
 autocorrect = "^2.6.1"
 numpy = "^1.26.4"
 torch = "2.2.2"
@@ -35,6 +34,7 @@ langchain-google-vertexai = "0.0.1"
 langchain-openai = "0.0.2"
 pydantic = "^2.11.1"
 ipykernel = "^6.29.5"
+soc-classification-library = {git = "https://github.com/ONSdigital/soc-classification-library.git", rev = "v0.1.0"}
 
 [tool.poetry.group.dev.dependencies]
 mkdocs-material = "^9.6.9"
