@@ -8,10 +8,9 @@ import pandas as pd
 
 def combine_job_title(row):
     """Produces full job title wih IND and ADD qualifiers."""
-    job_title = ""
+    job_title = row["natural_word"]
     if pd.notna(row["add"]):
-        job_title += f"{row['add']} "
-        job_title += row["natural_word"]
+        job_title = f"{row['add']} " + job_title
     if pd.notna(row["ind"]):
         job_title += f" ({row['ind']})"
     return job_title
@@ -37,7 +36,7 @@ def load_soc_index(filepath: str) -> pd.DataFrame:
 
     soc_index_df = soc_index_df[soc_index_df["code"] != "}}}}"]
     soc_index_df["title"] = soc_index_df.apply(combine_job_title, axis=1)
-    soc_index_df = soc_index_df.dropna()
+    soc_index_df = soc_index_df.dropna(subset=["code", "natural_word"])
     soc_index_df = soc_index_df[["code", "title"]]
     soc_index_df["title"] = soc_index_df["title"].str.capitalize()
     return soc_index_df
