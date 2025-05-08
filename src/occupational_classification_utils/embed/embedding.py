@@ -182,11 +182,16 @@ class EmbeddingHandler:
             soc_index_df = load_soc_index(
                 soc_index_file or config["lookups"]["soc_index"]
             )
-
+            logger.debug(
+                "Loaded %s entries from soc_index_df.", f"{len(soc_index_df):,}"
+            )
             # soc = load_hierarchy(soc_df, soc_index_df)
             for _, row in soc_index_df.iterrows():
                 docs.append(
-                    Document(page_content=row["title"], metadata={"code": row["code"]})
+                    Document(
+                        page_content=row["title"],
+                        metadata={"code": row["code"]},
+                    )
                 )
                 unique_id = str(uuid.uuid4())
                 ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, unique_id)))
