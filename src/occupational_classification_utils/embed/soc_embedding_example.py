@@ -8,7 +8,7 @@ which can be used for tasks such as similarity searches or classification.
 
 from occupational_classification_utils.embed.embedding import EmbeddingHandler
 
-EXAMPLE_QUERY = "school teacher primary education"
+EXAMPLE_QUERY = "Nurse"
 
 print("Creating embeddings index...")
 # Create the embeddings index
