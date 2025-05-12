@@ -20,6 +20,8 @@ Attributes:
         codes with a relevant subset of codes provided.
 """
 
+# pylint: disable=invalid-name # Need to clean up the code to remove this
+
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts.prompt import PromptTemplate
 
@@ -63,7 +65,9 @@ needed to determine it. Make sure to use the provided 2020 SOC index.
 # Load the SOC index from the configuration and convert to file path string
 soc_index = load_text_from_config(config["lookups"]["soc_condensed"])
 
-parser = PydanticOutputParser(pydantic_object=SocResponse)
+parser = PydanticOutputParser(  # type: ignore # Suspect langchain ver bug
+    pydantic_object=SocResponse
+)
 
 SOC_PROMPT_PYDANTIC = PromptTemplate.from_template(
     template=_core_prompt + _soc_template,
@@ -108,7 +112,9 @@ on the list you respond with.
 ===Output===
 """
 
-parser = PydanticOutputParser(pydantic_object=SurveyAssistSocResponse)
+parser = PydanticOutputParser(  # type: ignore # Suspect langchain ver bug
+    pydantic_object=SurveyAssistSocResponse
+)
 
 # Was sic_template_rag
 SA_SOC_PROMPT_RAG = PromptTemplate.from_template(
@@ -147,6 +153,3 @@ GENERAL_PROMPT_RAG = PromptTemplate.from_template(
         "format_instructions": parser.get_format_instructions(),
     },
 )
-
-
-
