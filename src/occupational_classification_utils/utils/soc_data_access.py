@@ -77,3 +77,26 @@ def load_soc_structure(filepath: str) -> pd.DataFrame:
         soc_df[col] = soc_df[col].str.strip()
 
     return soc_df
+
+
+def load_text_from_config(config_section: tuple[str, str]) -> str:
+    """Loads text content from a configuration file.
+
+    This function reads the content of a text file specified by the given
+    configuration section and returns it as a string.
+
+    Args:
+        config_section (tuple[str, str]): A tuple containing the package name
+            and the filename of the configuration file.
+
+    Returns:
+        str: The content of the configuration file as a string.
+
+    """
+    pkg, filename = config_section
+    file_path = files(pkg).joinpath(filename)
+
+    logger.info("Loading text from %s", file_path)
+
+    with file_path.open(encoding="utf-8") as f:
+        return f.read()
