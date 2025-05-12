@@ -1,9 +1,16 @@
 """Provide data access for key files.
 
-Filepaths are defined in config.
+This module contains utility functions to load and process data from
+SOC-related Excel files. The filepaths for these files are defined in
+the configuration function in `embedding.py`.
 """
 
+import logging
+
 import pandas as pd
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def combine_job_title(row):
@@ -79,24 +86,20 @@ def load_soc_structure(filepath: str) -> pd.DataFrame:
     return soc_df
 
 
-def load_text_from_config(config_section: tuple[str, str]) -> str:
+def load_text_from_config(file_path: str) -> str:
     """Loads text content from a configuration file.
 
     This function reads the content of a text file specified by the given
     configuration section and returns it as a string.
 
     Args:
-        config_section (tuple[str, str]): A tuple containing the package name
-            and the filename of the configuration file.
+        file_path (str): A filename of the configuration file.
 
     Returns:
         str: The content of the configuration file as a string.
 
     """
-    pkg, filename = config_section
-    file_path = files(pkg).joinpath(filename)
-
     logger.info("Loading text from %s", file_path)
 
-    with file_path.open(encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         return f.read()
