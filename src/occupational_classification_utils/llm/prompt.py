@@ -31,7 +31,7 @@ from occupational_classification_utils.models.response_model import (
     SocResponse,
     SurveyAssistSocResponse,
 )
-from occupational_classification_utils.utils.soc_data_access import (
+from occupational_classification_utils.utils.common_utils import (
     load_text_from_config,
 )
 
