@@ -20,16 +20,15 @@ from functools import lru_cache
 from typing import Any, Optional, Union
 
 import numpy as np
-from occupational_classification.hierarchy.soc_hierarchy import load_hierarchy
-from occupational_classification.meta.soc_meta import soc_meta
 from langchain.chains.llm import LLMChain
 from langchain.output_parsers import PydanticOutputParser
 from langchain_google_vertexai import VertexAI
 from langchain_openai import ChatOpenAI
+from occupational_classification.hierarchy.soc_hierarchy import load_hierarchy
+from occupational_classification.meta.soc_meta import soc_meta
 
 from occupational_classification_utils.embed.embedding import get_config
 from occupational_classification_utils.llm.prompt import (
-    GENERAL_PROMPT_RAG,
     SA_SOC_PROMPT_RAG,
     SOC_PROMPT_PYDANTIC,
 )
@@ -37,7 +36,7 @@ from occupational_classification_utils.models.response_model import (
     SocResponse,
     SurveyAssistSocResponse,
 )
-from occupational_classification_utils.utils.soc_data_access import (
+from occupational_classification.data_access.soc_data_access import (
     load_sic_index,
     load_sic_structure,
 )
@@ -112,8 +111,7 @@ class ClassificationLLM:
         manage_others: bool,
         industry_descr: str,
     ) -> SocResponse:
-        """
-        Generates a SOC classification based on respondent's data
+        """Generates a SOC classification based on respondent's data
         using a whole condensed index embedded in the query.
 
         Args:
@@ -148,7 +146,7 @@ class ClassificationLLM:
         try:
             validated_answer = parser.parse(response["text"])
         except Exception as parse_error:
-            logger.error(f"Unable to parse llm response: {str(parse_error)}")
+            logger.error(f"Unable to parse llm response: {parse_error!s}")
             reasoning = (
                 f'ERROR parse_error=<{parse_error}>, response=<{response["text"]}>'
             )
@@ -174,7 +172,7 @@ class ClassificationLLM:
         if self.soc is None:
             soc_index_df = load_soc_index(config["lookups"]["soc_index"])
             soc_df_input = load_soc_structure(config["lookups"]["soc_structure"])
-            soc_df = socDB.create_soc_dataframe(soc_df_input)    
+            soc_df = socDB.create_soc_dataframe(soc_df_input)
             self.soc = load_hierarchy(soc_df, soc_index_df)
         if self.sic is None:
             sic_index_df = load_sic_index(config["lookups"]["sic_index"])
@@ -262,8 +260,7 @@ class ClassificationLLM:
             code_digits: int = 4,
             candidates_limit: int = 5,
         ) -> SurveyAssistSocResponse:
-            """
-            Generates a SOC classification based on respondent's data using RAG approach.
+            """Generates a SOC classification based on respondent's data using RAG approach.
 
             Args:
                 industry_descr (str): The description of the industry.
@@ -291,10 +288,14 @@ class ClassificationLLM:
                 is_job_title_present = job_title is None or job_title in {"", " "}
                 job_title = "Unknown" if is_job_title_present else job_title
 
-                is_job_description_present = job_description is None or job_description in {
-                    "",
-                    " ",
-                }
+                is_job_description_present = (
+                    job_description is None
+                    or job_description
+                    in {
+                        "",
+                        " ",
+                    }
+                )
                 job_description = (
                     "Unknown" if is_job_description_present else job_description
                 )
