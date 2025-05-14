@@ -24,10 +24,17 @@ from langchain.chains.llm import LLMChain
 from langchain.output_parsers import PydanticOutputParser
 from langchain_google_vertexai import VertexAI
 from langchain_openai import ChatOpenAI
+from occupational_classification.data_access.soc_data_access import (
+    load_soc_index,
+    load_soc_structure,
+)
 from occupational_classification.hierarchy.soc_hierarchy import load_hierarchy
-from occupational_classification.meta.soc_meta import soc_meta
+from occupational_classification.meta.soc_meta import SocDB, SocMeta
 
-from occupational_classification_utils.embed.embedding import get_config
+from occupational_classification_utils.embed.embedding import (
+    EmbeddingHandler,
+    get_config,
+)
 from occupational_classification_utils.llm.prompt import (
     SA_SOC_PROMPT_RAG,
     SOC_PROMPT_PYDANTIC,
@@ -35,10 +42,6 @@ from occupational_classification_utils.llm.prompt import (
 from occupational_classification_utils.models.response_model import (
     SocResponse,
     SurveyAssistSocResponse,
-)
-from occupational_classification.data_access.soc_data_access import (
-    load_sic_index,
-    load_sic_structure,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,6 +61,8 @@ class ClassificationLLM:
         model_name (str): Name of the model. Defaults to the value in the `config` file.
             Used if no LLM object is passed.
         llm (LLM): LLM to use. Optional.
+        embedding_handler (EmbeddingHandler): Embedding handler. Optional.
+            If None a default embedding handler is retrieved based on config file.
         max_tokens (int): Maximum number of tokens to generate. Defaults to 1600.
         temperature (float): Temperature of the LLM model. Defaults to 0.0.
         verbose (bool): Whether to print verbose output. Defaults to False.
@@ -68,6 +73,7 @@ class ClassificationLLM:
         self,
         model_name: str = config["llm"]["llm_model_name"],
         llm: Optional[Union[VertexAI, ChatOpenAI]] = None,
+        embedding_handler: Optional[EmbeddingHandler] = None,
         max_tokens: int = 1600,
         temperature: float = 0.0,
         verbose: bool = True,
@@ -96,13 +102,34 @@ class ClassificationLLM:
         else:
             raise NotImplementedError("Unsupported model family")
 
+        soc_df_input = load_soc_structure(config["lookups"]["soc_structure"])
         self.soc_prompt = SOC_PROMPT_PYDANTIC
-        self.soc_meta = soc_meta
+        self.soc_meta = SocMeta(soc_df_input).soc_meta
         self.sa_soc_prompt_rag = SA_SOC_PROMPT_RAG
+        self.embed = embedding_handler
         self.soc = None
         self.verbose = verbose
 
-    @lru_cache
+    def _load_embedding_handler(self):
+        """Loads the default embedding handler according to the 'config' file.
+        Expects an existing and populated persistent vector store.
+
+        Raises:
+            ValueError: If the retrieved embedding handler has an empty vector store.
+                Please embed an index before using it in the ClassificationLLM.
+        """
+        logger.info(
+            """Loading default embedding handler according to 'config' file.
+            Expecting existing & populated persistent vector store."""
+        )
+        self.embed = EmbeddingHandler()
+        if self.embed._index_size == 0:
+            raise ValueError(
+                """The retrieved embedding handler has an empty vector store.
+                Please embed an index before using in the ClassificationLLM."""
+            )
+
+    @lru_cache  # noqa: B019
     def get_soc_code(
         self,
         job_title: str,
@@ -172,16 +199,20 @@ class ClassificationLLM:
         if self.soc is None:
             soc_index_df = load_soc_index(config["lookups"]["soc_index"])
             soc_df_input = load_soc_structure(config["lookups"]["soc_structure"])
-            soc_df = socDB.create_soc_dataframe(soc_df_input)
+            soc_df = SocDB.create_soc_dataframe(soc_df_input)  # check if need to move
+            soc_index_df = soc_index_df.rename(
+                columns={
+                    "code": "soc_2020",
+                    "title": "natural_word",
+                }  # TODO fix once this is corrected in soc-classification-library
+            )
+            soc_index_df["add"] = ""  # see above ^
+            soc_index_df["ind"] = ""  # see above ^
             self.soc = load_hierarchy(soc_df, soc_index_df)
-        if self.sic is None:
-            sic_index_df = load_sic_index(config["lookups"]["sic_index"])
-            sic_df = load_sic_structure(config["lookups"]["sic_structure"])
-            self.sic = load_hierarchy(sic_df, sic_index_df)
 
         item = self.soc[code]
         txt = "{" + f"Code: {item.soc_code}, Title: {item.group_title}"
-        txt += f", Example activities: {', '.join(activities)}"
+        txt += f", Example job_titles: {', '.join(job_titles)}"
         # if include_all:
         #     if item.soc_meta.group_description:
         #         txt += f", Description: {item.soc_meta.detail}"
@@ -251,116 +282,125 @@ class ClassificationLLM:
 
         return "\n".join(soc_candidates)
 
-        def sa_rag_soc_code(
-            self,
-            industry_descr: str,
-            job_title: str = None,
-            job_description: str = None,
-            expand_search_terms: bool = True,
-            code_digits: int = 4,
-            candidates_limit: int = 5,
-        ) -> SurveyAssistSocResponse:
-            """Generates a SOC classification based on respondent's data using RAG approach.
+    def sa_rag_soc_code(
+        self,
+        industry_descr: str,
+        job_title: Optional[str] = None,
+        job_description: Optional[str] = None,
+        expand_search_terms: bool = True,
+        code_digits: int = 4,
+        candidates_limit: int = 5,
+    ) -> SurveyAssistSocResponse:
+        """Generates a SOC classification based on respondent's data using RAG approach.
 
-            Args:
-                industry_descr (str): The description of the industry.
-                job_title (str, optional): The job title. Defaults to None.
-                job_description (str, optional): The job description. Defaults to None.
-                expand_search_terms (bool, optional): Whether to expand the search terms
-                    to include job title and description. Defaults to True.
-                code_digits (int, optional): The number of digits in the generated
-                    SOC code. Defaults to 4.
-                candidates_limit (int, optional): The maximum number of SOC code candidates
-                    to consider. Defaults to 5.
+        Args:
+            industry_descr (str): The description of the industry.
+            job_title (str, optional): The job title. Defaults to None.
+            job_description (str, optional): The job description. Defaults to None.
+            expand_search_terms (bool, optional): Whether to expand the search terms
+                to include job title and description. Defaults to True.
+            code_digits (int, optional): The number of digits in the generated
+                SOC code. Defaults to 4.
+            candidates_limit (int, optional): The maximum number of SOC code candidates
+                to consider. Defaults to 5.
 
-            Returns:
-                SurveyAssistSocResponse: The generated response to the query.
+        Returns:
+            SurveyAssistSocResponse: The generated response to the query.
 
-            Raises:
-                ValueError: If there is an error during the parsing of the response.
-                ValueError: If the default embedding handler is required but
-                    not loaded correctly.
+        Raises:
+            ValueError: If there is an error during the parsing of the response.
+            ValueError: If the default embedding handler is required but
+                not loaded correctly.
 
-            """
+        """
 
-            def prep_call_dict(industry_descr, job_title, job_description, soc_codes):
-                # Helper function to prepare the call dictionary
-                is_job_title_present = job_title is None or job_title in {"", " "}
-                job_title = "Unknown" if is_job_title_present else job_title
+        def prep_call_dict(industry_descr, job_title, job_description, soc_codes):
+            # Helper function to prepare the call dictionary
+            is_job_title_present = job_title is None or job_title in {"", " "}
+            job_title = "Unknown" if is_job_title_present else job_title
 
-                is_job_description_present = (
-                    job_description is None
-                    or job_description
-                    in {
-                        "",
-                        " ",
-                    }
-                )
-                job_description = (
-                    "Unknown" if is_job_description_present else job_description
-                )
-
-                call_dict = {
-                    "industry_descr": industry_descr,
-                    "job_title": job_title,
-                    "job_description": job_description,
-                    "soc_index": soc_codes,
-                }
-                return call_dict
-
-            # Retrieve relevant SOC codes and format them for prompt
-            if expand_search_terms:
-                short_list = self.embed.search_index_multi(
-                    query=[industry_descr, job_title, job_description]
-                )
-            else:
-                short_list = self.embed.search_index(query=job_title)
-
-            soc_codes = self._prompt_candidate_list(
-                short_list, code_digits=code_digits, candidates_limit=candidates_limit
+            is_job_description_present = job_description is None or job_description in {
+                "",
+                " ",
+            }
+            job_description = (
+                "Unknown" if is_job_description_present else job_description
             )
 
-            call_dict = prep_call_dict(
-                industry_descr=industry_descr,
-                job_title=job_title,
-                job_description=job_description,
-                soc_codes=soc_codes,
-            )
+            call_dict = {
+                "industry_descr": industry_descr,
+                "job_title": job_title,
+                "job_description": job_description,
+                "soc_index": soc_codes,
+            }
+            return call_dict
 
-            if self.verbose:
-                final_prompt = self.sa_rag_soc_prompt.format(**call_dict)
-                logger.debug(final_prompt)
-
-            chain = LLMChain(llm=self.llm, prompt=self.sa_rag_soc_prompt)
-
+        if self.embed is None:
             try:
-                response = chain.invoke(call_dict, return_only_outputs=True)
+                self._load_embedding_handler()
             except ValueError as err:
                 logger.exception(err)
-                logger.warning("Error from LLMChain, exit early")
-                validated_answer = SurveyAssistSocResponse(
+                logger.warning("Error: Empty embedding vector store, exit early")
+                validated_answer = SocResponse(
+                    codable=False,
                     soc_candidates=[],
-                    reasoning="Error from LLMChain, exit early",
+                    reasoning="Error, Empty embedding vector store, exit early",
                 )
-                return validated_answer, short_list, call_dict
+                return validated_answer, None, None
 
-            if self.verbose:
-                logger.debug(f"{response=}")
+        # Retrieve relevant SOC codes and format them for prompt
+        if expand_search_terms:
+            short_list = self.embed.search_index_multi(
+                query=[industry_descr, job_title, job_description]
+            )
+        else:
+            short_list = self.embed.search_index(query=job_title)
 
-            # Parse the output to the desired format
-            parser = PydanticOutputParser(pydantic_object=SurveyAssistSocResponse)
-            try:
-                validated_answer = parser.parse(response["text"])
-            except ValueError as parse_error:
-                logger.exception(parse_error)
-                logger.warning(f"Failed to parse response:\n{response['text']}")
+        soc_codes = self._prompt_candidate_list(
+            short_list, code_digits=code_digits, candidates_limit=candidates_limit
+        )
 
-                reasoning = (
-                    f'ERROR parse_error=<{parse_error}>, response=<{response["text"]}>'
-                )
-                validated_answer = SurveyAssistSocResponse(
-                    soc_candidates=[],
-                    reasoning=reasoning,
-                )
+        call_dict = prep_call_dict(
+            industry_descr=industry_descr,
+            job_title=job_title,
+            job_description=job_description,
+            soc_codes=soc_codes,
+        )
 
+        if self.verbose:
+            final_prompt = self.sa_soc_prompt_rag.format(**call_dict)
+            logger.debug(final_prompt)
+
+        chain = LLMChain(llm=self.llm, prompt=self.sa_soc_prompt_rag)
+
+        try:
+            response = chain.invoke(call_dict, return_only_outputs=True)
+        except ValueError as err:
+            logger.exception(err)
+            logger.warning("Error from LLMChain, exit early")
+            validated_answer = SurveyAssistSocResponse(
+                soc_candidates=[],
+                reasoning="Error from LLMChain, exit early",
+            )
             return validated_answer, short_list, call_dict
+
+        if self.verbose:
+            logger.debug(f"{response=}")
+
+        # Parse the output to the desired format
+        parser = PydanticOutputParser(pydantic_object=SurveyAssistSocResponse)
+        try:
+            validated_answer = parser.parse(response["text"])
+        except ValueError as parse_error:
+            logger.exception(parse_error)
+            logger.warning(f"Failed to parse response:\n{response['text']}")
+
+            reasoning = (
+                f'ERROR parse_error=<{parse_error}>, response=<{response["text"]}>'
+            )
+            validated_answer = SurveyAssistSocResponse(
+                soc_candidates=[],
+                reasoning=reasoning,
+            )
+
+        return validated_answer, short_list, call_dict
