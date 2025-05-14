@@ -13,11 +13,10 @@ from autocorrect import Speller
 from langchain.docstore.document import Document
 from langchain_community.embeddings import HuggingFaceEmbeddings, VertexAIEmbeddings
 from langchain_community.vectorstores import Chroma  # pylint: disable=no-name-in-module
-from occupational_classification.hierarchy.soc_hierarchy import SOC
-
 from occupational_classification.data_access.soc_data_access import (
     load_soc_index,
 )
+from occupational_classification.hierarchy.soc_hierarchy import SOC
 
 logger = logging.getLogger(__name__)
 
