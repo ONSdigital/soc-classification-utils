@@ -15,7 +15,7 @@ from langchain_community.embeddings import HuggingFaceEmbeddings, VertexAIEmbedd
 from langchain_community.vectorstores import Chroma  # pylint: disable=no-name-in-module
 from occupational_classification.hierarchy.soc_hierarchy import SOC
 
-from occupational_classification_utils.utils.soc_data_access import (
+from occupational_classification.data_access.soc_data_access import (
     load_soc_index,
 )
 
