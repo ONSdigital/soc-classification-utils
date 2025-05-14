@@ -34,7 +34,7 @@ langchain-google-vertexai = "0.0.1"
 langchain-openai = "0.0.2"
 pydantic = "^2.11.1"
 ipykernel = "^6.29.5"
-soc-classification-library = {git = "https://github.com/ONSdigital/soc-classification-library.git", rev = "v0.1.0"}
+soc-classification-library = {git = "https://github.com/ONSdigital/soc-classification-library.git", rev = "v0.1.1"}
 jupytext = "^1.17.1"
 
 [tool.poetry.group.dev.dependencies]
