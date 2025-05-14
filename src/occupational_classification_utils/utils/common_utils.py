@@ -5,8 +5,6 @@ This module contains utility functions to load and process data.
 
 import logging
 
-import pandas as pd
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
