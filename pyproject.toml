@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "soc-classification-utils"
-version = "0.0.1"
+version = "0.1.0"
 description = "Utility functions used for SOC classification"
 authors = ["Steve Gibbard <steve.gibbard@ons.gov.uk>"]
 license = "MIT"
