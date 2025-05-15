@@ -6,8 +6,8 @@ The module uses the `EmbeddingHandler` class from the
 It provides functionality to create or update an embeddings index,
 which can be used for tasks such as similarity searches or classification.
 
-The example then uses llm from the `occupational_classification_utils.llm.llm_embedding_example`
-package to perform a lookup using the embeddings index.
+The example then uses a `ClassificationLLM` object from the `occupational_classification_utils.llm.llm`
+package to perform a lookup using the embeddings index, followed by a call to the llm model.
 """
 
 from occupational_classification_utils.llm.llm import ClassificationLLM
