@@ -116,7 +116,6 @@ parser = PydanticOutputParser(  # type: ignore # Suspect langchain ver bug
     pydantic_object=SurveyAssistSocResponse
 )
 
-# Was sic_template_rag
 SA_SOC_PROMPT_RAG = PromptTemplate.from_template(
     template=_core_prompt + _sa_soc_template_rag,
     partial_variables={
