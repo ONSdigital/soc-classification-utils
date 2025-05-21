@@ -12,10 +12,10 @@ The module includes:
 - Integration with Pydantic models for structured output parsing.
 
 Attributes:
-    SOC_PROMPT_PYDANTIC (PromptTemplate): Template for determining SIC codes based on
+    SOC_PROMPT_PYDANTIC (PromptTemplate): Template for determining SOC codes based on
         respondent data.
     SA_SOC_PROMPT_RAG (PromptTemplate): Template for determining a list of most likely
-        SIC codes with confidence scores.
+        SOC codes with confidence scores.
     GENERAL_PROMPT_RAG (PromptTemplate): Template for determining custom classification
         codes with a relevant subset of codes provided.
 """

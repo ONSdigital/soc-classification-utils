@@ -191,8 +191,8 @@ class RagResponse(BaseModel):
             or alternative classification codes that may be applicable with their
             descriptive label and estimated likelihood.
         reasoning (str): Step by step reasoning behind the classification selected.
-            Specifies the information used to assign the SIC code or any additional
-            information required to assign a SIC code.
+            Specifies the information used to assign the SOC code or any additional
+            information required to assign a SOC code.
     """
 
     codable: bool = Field(
@@ -221,8 +221,8 @@ class RagResponse(BaseModel):
     )
     reasoning: str = Field(
         description="""Step by step reasoning behind classification selected. Specifies
-            the information used to assign the SIC code or any additional information
-            required to assign a SIC code."""
+            the information used to assign the SOC code or any additional information
+            required to assign a SOC code."""
     )
 
 
@@ -232,13 +232,13 @@ class SurveyAssistSocResponse(BaseModel):
     Attributes:
         followup (str): Question to ask user in order to collect
             additional information to enable reliable classification assignment.
-        sic_code (str): Full classification code (to the required
+        soc_code (str): Full classification code (to the required
             number of digits) assigned based on provided respondent's data.
             This is the most likely coding.
-        sic_descriptive (str): Descriptive label of the classification
+        soc_descriptive (str): Descriptive label of the classification
             category associated with class_code if provided.
             This is the most likely coding.
-        sic_candidates (list[RagCandidate]): Short list of less than ten possible
+        soc_candidates (list[RagCandidate]): Short list of less than ten possible
             or alternative classification codes that may be applicable with their
             descriptive label and estimated likelihood.
         reasoning (str): Step by step reasoning for the most likely classification

@@ -8,7 +8,7 @@ classification scenarios, such as unambiguous classification, reranking, and
 general-purpose classification.
 
 Classes:
-    ClassificationLLM: A wrapper for LLM-based SIC classification logic.
+    ClassificationLLM: A wrapper for LLM-based SOC classification logic.
 
 Functions:
     (None at the module level)
@@ -215,9 +215,9 @@ class ClassificationLLM:
         txt += f", Example job_titles: {', '.join(job_titles)}"
         # if include_all:
         #     if item.soc_meta.group_description:
-        #         txt += f", Description: {item.soc_meta.detail}"
+        #         txt += f", Description: {item.soc_meta.group_description}"
         #     if item.soc_meta.qualifications:
-        #         txt += f", Qualifications: {', '.join(item.sic_meta.includes)}"
+        #         txt += f", Qualifications: {', '.join(item.soc_meta.entry_routes_and_quals)}"
         return txt + "}"
 
     def _prompt_candidate_list(
