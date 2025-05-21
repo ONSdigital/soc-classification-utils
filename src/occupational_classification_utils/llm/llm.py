@@ -244,7 +244,7 @@ class ClassificationLLM:
             titles_limit (int, optional): The maximum number of job titles
                 to include for each code. Defaults to 3.
             code_digits (int, optional): The number of digits to consider from
-                the code for filtering candidates. Defaults to 5.
+                the code for filtering candidates. Defaults to 4.
 
         Returns:
             str: The generated candidate list for the prompt.
