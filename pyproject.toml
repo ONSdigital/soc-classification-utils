@@ -30,13 +30,14 @@ transformers = "4.52.4"
 chromadb = "^1.0.12"
 openpyxl = "^3.1.5"
 # langchain-google-vertexai = "0.0.1"
+langchain-huggingface = "0.3.0"
 langchain-google-genai = "2.1.5"
 langchain-openai = "0.3.21"
 pydantic = "^2.11.1"
 ipykernel = "^6.29.5"
-soc-classification-library = {git = "https://github.com/ONSdigital/soc-classification-library.git", rev = "v0.1.1"}
 jupytext = "^1.17.1"
-
+# soc-classification-library = {git = "https://github.com/ONSdigital/soc-classification-library.git", rev = "v0.1.1"}
+soc-classification-library = {git = "https://github.com/ONSdigital/soc-classification-library.git"}
 [tool.poetry.group.dev.dependencies]
 mkdocs-material = "^9.6.9"
 pytest-cov = "^6.0.0"
