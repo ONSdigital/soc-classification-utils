@@ -13,7 +13,7 @@ from autocorrect import Speller
 from langchain.docstore.document import Document
 from langchain_community.embeddings import HuggingFaceEmbeddings, VertexAIEmbeddings
 from langchain_community.vectorstores import Chroma  # pylint: disable=no-name-in-module
-from occupational_classification.data_access.soc_data_access import (
+from occupational_classification_utils.utils.soc_data_access import (
     load_soc_index,
 )
 from occupational_classification.hierarchy.soc_hierarchy import SOC
@@ -49,16 +49,16 @@ def get_config() -> dict[str, dict[str, str]]:
         },
         "lookups": {
             "soc_index": (
-                "src/occupational_classification_utils/data/soc_index/"
-                "soc2020volume2thecodingindexexcel16102024.xlsx"
+                "occupational_classification_utils.data.soc_index",
+                "soc2020volume2thecodingindexexcel16102024.xlsx",
             ),
             "soc_structure": (
-                "src/occupational_classification_utils/data/soc_index/"
-                "soc2020volume1structureanddescriptionofunitgroupsexcel16102024.xlsx"
+                "occupational_classification_utils.data.soc_index",
+                "soc2020volume1structureanddescriptionofunitgroupsexcel16102024.xlsx",
             ),
             "soc_condensed": (
-                "src/occupational_classification_utils/data/example/"
-                "soc_4d_condensed.txt"
+                "occupational_classification_utils.data.example",
+                "soc_4d_condensed.txt",
             ),
         },
     }
