@@ -24,10 +24,6 @@ from langchain.chains.llm import LLMChain
 from langchain.output_parsers import PydanticOutputParser
 from langchain_google_vertexai import VertexAI
 from langchain_openai import ChatOpenAI
-from occupational_classification.data_access.soc_data_access import (
-    load_soc_index,
-    load_soc_structure,
-)
 from occupational_classification.hierarchy.soc_hierarchy import load_hierarchy
 from occupational_classification.meta.soc_meta import SocDB, SocMeta
 
@@ -42,6 +38,10 @@ from occupational_classification_utils.llm.prompt import (
 from occupational_classification_utils.models.response_model import (
     SocResponse,
     SurveyAssistSocResponse,
+)
+from occupational_classification_utils.utils.soc_data_access import (
+    load_soc_index,
+    load_soc_structure,
 )
 
 logger = logging.getLogger(__name__)
