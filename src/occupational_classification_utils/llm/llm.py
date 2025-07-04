@@ -20,7 +20,7 @@ from functools import lru_cache
 from typing import Any, Optional, Union
 
 import numpy as np
-# from langchain.chains.llm import LLMChain
+from langchain.chains import LLMChain
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.output_parsers.pydantic import PydanticOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -104,7 +104,8 @@ class ClassificationLLM:
 
         soc_df_input = load_soc_structure(config["lookups"]["soc_structure"])
         self.soc_prompt = SOC_PROMPT_PYDANTIC
-        self.soc_meta = SocMeta(soc_df_input).soc_meta
+        # self.soc_meta = SocMeta(soc_df_input).soc_meta
+        self.soc_meta = SocMeta(config["lookups"]["soc_structure"]).soc_meta
         self.sa_soc_prompt_rag = SA_SOC_PROMPT_RAG
         self.embed = embedding_handler
         self.soc = None
@@ -155,8 +156,7 @@ class ClassificationLLM:
             ValueError: If there is an error parsing the response from the LLM model.
 
         """
-        chain = self.prompt | self.llm | StrOutputParser()
-        # chain = LLMChain(llm=self.llm, prompt=self.soc_prompt)
+        chain = LLMChain(llm=self.llm, prompt=self.soc_prompt)
         response = chain.invoke(
             {
                 "job_title": job_title,
@@ -372,8 +372,8 @@ class ClassificationLLM:
             final_prompt = self.sa_soc_prompt_rag.format(**call_dict)
             logger.debug(final_prompt)
 
-        # chain = LLMChain(llm=self.llm, prompt=self.sa_soc_prompt_rag)
-        chain = self.prompt | self.llm | StrOutputParser()
+        chain = LLMChain(llm=self.llm, prompt=self.sa_soc_prompt_rag)
+        # chain = self.prompt | self.llm | StrOutputParser()
 
         try:
             response = chain.invoke(call_dict, return_only_outputs=True)
