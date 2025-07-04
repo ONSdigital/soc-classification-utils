@@ -20,9 +20,10 @@ from functools import lru_cache
 from typing import Any, Optional, Union
 
 import numpy as np
-from langchain.chains.llm import LLMChain
-from langchain.output_parsers import PydanticOutputParser
-from langchain_google_vertexai import VertexAI
+# from langchain.chains.llm import LLMChain
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.output_parsers.pydantic import PydanticOutputParser
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from occupational_classification.data_access.soc_data_access import (
     load_soc_index,
@@ -72,7 +73,7 @@ class ClassificationLLM:
     def __init__(
         self,
         model_name: str = config["llm"]["llm_model_name"],
-        llm: Optional[Union[VertexAI, ChatOpenAI]] = None,
+        llm: Optional[Union[ChatGoogleGenerativeAI, ChatOpenAI]] = None,
         embedding_handler: Optional[EmbeddingHandler] = None,
         max_tokens: int = 1600,
         temperature: float = 0.0,
@@ -84,11 +85,10 @@ class ClassificationLLM:
         if llm is not None:
             self.llm = llm
         elif model_name.startswith("text-") or model_name.startswith("gemini"):
-            self.llm = VertexAI(
-                model_name=model_name,
-                max_output_tokens=max_tokens,
+            self.llm = ChatGoogleGenerativeAI(
+                model=model_name,
+                max_tokens=max_tokens,
                 temperature=temperature,
-                location="europe-west2",
             )
         elif model_name.startswith("gpt"):
             if openai_api_key is None:
@@ -97,7 +97,7 @@ class ClassificationLLM:
                 model=model_name,
                 api_key=openai_api_key,
                 temperature=temperature,
-                max_tokens=max_tokens,
+                model_kwargs={"max_tokens": max_tokens},
             )
         else:
             raise NotImplementedError("Unsupported model family")
@@ -155,7 +155,8 @@ class ClassificationLLM:
             ValueError: If there is an error parsing the response from the LLM model.
 
         """
-        chain = LLMChain(llm=self.llm, prompt=self.soc_prompt)
+        chain = self.prompt | self.llm | StrOutputParser()
+        # chain = LLMChain(llm=self.llm, prompt=self.soc_prompt)
         response = chain.invoke(
             {
                 "job_title": job_title,
@@ -371,7 +372,8 @@ class ClassificationLLM:
             final_prompt = self.sa_soc_prompt_rag.format(**call_dict)
             logger.debug(final_prompt)
 
-        chain = LLMChain(llm=self.llm, prompt=self.sa_soc_prompt_rag)
+        # chain = LLMChain(llm=self.llm, prompt=self.sa_soc_prompt_rag)
+        chain = self.prompt | self.llm | StrOutputParser()
 
         try:
             response = chain.invoke(call_dict, return_only_outputs=True)
