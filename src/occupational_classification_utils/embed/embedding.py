@@ -233,7 +233,7 @@ class EmbeddingHandler:
         )
 
     def search_index(
-        self, query: str, return_dicts: bool = True
+        self, query: Optional[str], return_dicts: bool = True
     ) -> Union[list[dict], list[tuple[Document, float]]]:
         """Returns k document chunks with the highest relevance to the query.
 
@@ -260,7 +260,7 @@ class EmbeddingHandler:
             ]
         return top_matches
 
-    def search_index_multi(self, query: list[str]) -> list[dict]:
+    def search_index_multi(self, query: list[Optional[str]]) -> list[dict]:
         """Returns k document chunks with the highest relevance to a list of query fields.
 
         Args:
@@ -274,7 +274,7 @@ class EmbeddingHandler:
         query = [x for x in query if x is not None]
         search_terms_list = set()
         for i in range(len(query)):
-            x = " ".join(query[: (i + 1)])
+            x = " ".join(str(query[: (i + 1)]))
             search_terms_list.add(x)
             search_terms_list.add(self.spell(x))
         short_list = [y for x in search_terms_list for y in self.search_index(query=x)]
