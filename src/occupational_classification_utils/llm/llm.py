@@ -102,7 +102,7 @@ class ClassificationLLM:
         else:
             raise NotImplementedError("Unsupported model family")
 
-        soc_df_input = load_soc_structure(config["lookups"]["soc_structure"])
+        soc_df_input = config["lookups"]["soc_structure"]
         self.soc_prompt = SOC_PROMPT_PYDANTIC
         self.soc_meta = SocMeta(soc_df_input).soc_meta
         self.sa_soc_prompt_rag = SA_SOC_PROMPT_RAG
@@ -200,16 +200,10 @@ class ClassificationLLM:
             soc_index_df = load_soc_index(config["lookups"]["soc_index"])
             soc_df_input = load_soc_structure(config["lookups"]["soc_structure"])
             soc_df = SocDB.create_soc_dataframe(soc_df_input)  # check if need to move
-            soc_index_df = soc_index_df.rename(
-                columns={
-                    "code": "soc_2020",
-                    "title": "natural_word",
-                }  # TODO fix once this is corrected in soc-classification-library
-            )
-            soc_index_df["add"] = ""  # see above ^
-            soc_index_df["ind"] = ""  # see above ^
-            self.soc = load_hierarchy(soc_df, soc_index_df)
+            structure_data_path = config["lookups"]["soc_structure"]
+            self.soc = load_hierarchy(soc_df, soc_index_df, structure_data_path = structure_data_path)
 
+            
         item = self.soc[code]
         txt = "{" + f"Code: {item.soc_code}, Title: {item.group_title}"
         txt += f", Example job_titles: {', '.join(job_titles)}"
