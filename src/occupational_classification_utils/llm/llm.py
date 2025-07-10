@@ -173,17 +173,17 @@ class ClassificationLLM:
         # Parse the output to desired format with one retry
         parser = PydanticOutputParser(pydantic_object=SocResponse)  # type: ignore
         try:
-            validated_answer = parser.parse(response["text"])
+            validated_answer_sr = parser.parse(response["text"])
         except Exception as parse_error:
             logger.error(f"Unable to parse llm response: {parse_error!s}")
             reasoning = (
                 f'ERROR parse_error=<{parse_error}>, response=<{response["text"]}>'
             )
-            validated_answer = SocResponse(
+            validated_answer_sr = SocResponse(
                 codable=False, soc_candidates=[], reasoning=reasoning
             )
 
-        return validated_answer
+        return validated_answer_sr
 
     def _prompt_candidate(
         self, code: str, job_titles: list[str], include_all: bool = False
@@ -290,7 +290,11 @@ class ClassificationLLM:
         expand_search_terms: bool = True,
         code_digits: int = 4,
         candidates_limit: int = 5,
-    ) -> tuple[SocResponse, None, None]:
+    ) -> tuple[
+        Union[SocResponse, SurveyAssistSocResponse],
+        Optional[list[dict[Any, Any]]],
+        Optional[Any],
+    ]:
         """Generates a SOC classification based on respondent's data using RAG approach.
 
         Args:
@@ -341,12 +345,12 @@ class ClassificationLLM:
             except ValueError as err:
                 logger.exception(err)
                 logger.warning("Error: Empty embedding vector store, exit early")
-                validated_answer = SocResponse(
+                validated_answer_sr = SocResponse(
                     codable=False,
                     soc_candidates=[],
                     reasoning="Error, Empty embedding vector store, exit early",
                 )
-                return validated_answer, None, None
+                return validated_answer_sr, None, None
 
         # Retrieve relevant SOC codes and format them for prompt
         if expand_search_terms:
@@ -359,7 +363,7 @@ class ClassificationLLM:
                 raise ValueError("embedding_handler is not initialized.")
 
         elif self.embed is not None:
-            short_list = self.embed.search_index(query=job_title)
+            short_list = self.embed.search_index(query=job_title)  # type: ignore
         else:
             raise ValueError("embedding_handler is not initialized.")
 
@@ -385,11 +389,11 @@ class ClassificationLLM:
         except ValueError as err:
             logger.exception(err)
             logger.warning("Error from LLMChain, exit early")
-            validated_answer = SurveyAssistSocResponse(
+            validated_answer_sa = SurveyAssistSocResponse(
                 soc_candidates=[],
                 reasoning="Error from LLMChain, exit early",
             )
-            return validated_answer, short_list, call_dict
+            return validated_answer_sa, short_list, call_dict
 
         if self.verbose:
             logger.debug(f"{response=}")
@@ -397,7 +401,7 @@ class ClassificationLLM:
         # Parse the output to the desired format
         parser = PydanticOutputParser(pydantic_object=SurveyAssistSocResponse)  # type: ignore
         try:
-            validated_answer = parser.parse(response["text"])
+            validated_answer_sa = parser.parse(response["text"])
         except ValueError as parse_error:
             logger.exception(parse_error)
             logger.warning(f"Failed to parse response:\n{response['text']}")
@@ -405,9 +409,9 @@ class ClassificationLLM:
             reasoning = (
                 f'ERROR parse_error=<{parse_error}>, response=<{response["text"]}>'
             )
-            validated_answer = SurveyAssistSocResponse(
+            validated_answer_sa = SurveyAssistSocResponse(
                 soc_candidates=[],
                 reasoning=reasoning,
             )
 
-        return validated_answer, short_list, call_dict
+        return validated_answer_sa, short_list, call_dict
