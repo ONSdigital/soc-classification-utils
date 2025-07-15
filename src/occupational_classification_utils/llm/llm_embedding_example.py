@@ -11,6 +11,9 @@ package to perform a lookup using the embeddings index, followed by a call to th
 """
 
 from occupational_classification_utils.llm.llm import ClassificationLLM
+from occupational_classification_utils.embed.embedding import EmbeddingHandler
+
+embed = EmbeddingHandler()
 
 EXAMPLE_QUERY = "school teacher primary education"
 LLM_MODEL = "gemini-1.5-flash"
@@ -18,6 +21,11 @@ JOB_TITLE = "school teacher"
 JOB_DESCRIPTION = "teach maths"
 ORG_DESCRIPTION = "school"
 CANDIDATE_LIMIT = 100
+
+try:
+    embed.embed_index(from_empty=False)
+except Exception as e:
+    embed.embed_index(from_empty=True)
 
 # The vector store is not yet decoupled from the LLM.
 # The expectation is that the embedding search
