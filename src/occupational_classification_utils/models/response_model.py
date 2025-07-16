@@ -250,24 +250,21 @@ class SurveyAssistSocResponse(BaseModel):
     followup: Optional[str] = Field(
         description="""Question to ask user in order to collect additional information
         to enable reliable classification assignment.""",
-        default=None,
     )
     soc_code: Optional[str] = Field(
         description="""Full classification code (to the required number of digits)
         of the most likely canddate assigned based on provided respondent's data.""",
-        default=None,
     )
     soc_descriptive: Optional[str] = Field(
         description="""Descriptive label of the most likely classification category
         associated with soc_code.""",
-        default=None,
     )
-    soc_candidates: list[SocCandidate] = Field(
+    soc_candidates: Optional[list[SocCandidate]] = Field(
         description="""Short list of less than ten possible or alternative SOC codes
         that may be applicable with their descriptive label and estimated likelihood."""
     )
-    reasoning: str = Field(
+    reasoning: Optional[str] = Field(
         description="""Step by step reasoning behind the most likely classification
         selected. Specifies the information used to assign the SOC code or any
-        additional information required to assign a SOC code."""
+        additional information required to assign a SOC code.""",
     )
