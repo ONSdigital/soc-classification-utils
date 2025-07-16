@@ -7,8 +7,8 @@ and performing similarity searches.
 
 import logging
 import uuid
-from typing import Any, Optional, Union
 from pathlib import Path
+from typing import Any, Optional, Union
 
 from autocorrect import Speller
 from langchain.docstore.document import Document
@@ -50,17 +50,16 @@ def get_config() -> dict[str, dict[str, str]]:
             "db_dir": str(folder_dir.parent) + "/data/vector_store",
         },
         "lookups": {
-            "soc_index": ( str(folder_dir.parent) + 
-                "/data/soc_index/"
+            "soc_index": (
+                str(folder_dir.parent) + "/data/soc_index/"
                 "soc2020volume2thecodingindexexcel16102024.xlsx"
             ),
-            "soc_structure": ( str(folder_dir.parent) + 
-                "/data/soc_index/"
+            "soc_structure": (
+                str(folder_dir.parent) + "/data/soc_index/"
                 "soc2020volume1structureanddescriptionofunitgroupsexcel16102024.xlsx"
             ),
-            "soc_condensed": ( str(folder_dir.parent) + 
-                "/data/example/"
-                "soc_4d_condensed.txt"
+            "soc_condensed": (
+                str(folder_dir.parent) + "/data/example/" "soc_4d_condensed.txt"
             ),
         },
     }
