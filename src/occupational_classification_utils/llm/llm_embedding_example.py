@@ -6,12 +6,13 @@ The module uses the `EmbeddingHandler` class from the
 It provides functionality to create or update an embeddings index,
 which can be used for tasks such as similarity searches or classification.
 
-The example then uses a `ClassificationLLM` object from the `occupational_classification_utils.llm.llm`
-package to perform a lookup using the embeddings index, followed by a call to the llm model.
+The example then uses a `ClassificationLLM` object from
+the `occupational_classification_utils.llm.llm` package to perform a lookup using
+the embeddings index, followed by a call to the llm model.
 """
 
-from occupational_classification_utils.llm.llm import ClassificationLLM
 from occupational_classification_utils.embed.embedding import EmbeddingHandler
+from occupational_classification_utils.llm.llm import ClassificationLLM
 
 embed = EmbeddingHandler()
 
@@ -24,7 +25,7 @@ CANDIDATE_LIMIT = 100
 
 try:
     embed.embed_index(from_empty=False)
-except Exception as e:
+except Exception:
     embed.embed_index(from_empty=True)
 
 # The vector store is not yet decoupled from the LLM.
