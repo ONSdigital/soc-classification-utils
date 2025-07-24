@@ -20,7 +20,9 @@ from functools import lru_cache
 from typing import Any, Optional, Union
 
 import numpy as np
+import pandas as pd
 from langchain.chains.llm import LLMChain
+from langchain.docstore.document import Document
 from langchain.output_parsers import PydanticOutputParser
 from langchain_google_vertexai import VertexAI
 from langchain_openai import ChatOpenAI
@@ -69,7 +71,7 @@ class ClassificationLLM:
         openai_api_key (str): OpenAI API key. Optional, but needed for OpenAI models.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         model_name: str = config["llm"]["llm_model_name"],
         llm: Optional[Union[VertexAI, ChatOpenAI]] = None,
@@ -102,12 +104,12 @@ class ClassificationLLM:
         else:
             raise NotImplementedError("Unsupported model family")
 
-        soc_df_input = load_soc_structure(config["lookups"]["soc_structure"])
+        soc_df_input = config["lookups"]["soc_structure"]
         self.soc_prompt = SOC_PROMPT_PYDANTIC
         self.soc_meta = SocMeta(soc_df_input).soc_meta
         self.sa_soc_prompt_rag = SA_SOC_PROMPT_RAG
         self.embed = embedding_handler
-        self.soc = None
+        self.soc: Optional[pd.DataFrame] = None
         self.verbose = verbose
 
     def _load_embedding_handler(self):
@@ -169,19 +171,19 @@ class ClassificationLLM:
         if self.verbose:
             logger.debug(f"{response=}")
         # Parse the output to desired format with one retry
-        parser = PydanticOutputParser(pydantic_object=SocResponse)
+        parser = PydanticOutputParser(pydantic_object=SocResponse)  # type: ignore
         try:
-            validated_answer = parser.parse(response["text"])
+            validated_answer_sr = parser.parse(response["text"])
         except Exception as parse_error:
             logger.error(f"Unable to parse llm response: {parse_error!s}")
             reasoning = (
                 f'ERROR parse_error=<{parse_error}>, response=<{response["text"]}>'
             )
-            validated_answer = SocResponse(
+            validated_answer_sr = SocResponse(
                 codable=False, soc_candidates=[], reasoning=reasoning
             )
 
-        return validated_answer
+        return validated_answer_sr
 
     def _prompt_candidate(
         self, code: str, job_titles: list[str], include_all: bool = False
@@ -199,16 +201,11 @@ class ClassificationLLM:
         if self.soc is None:
             soc_index_df = load_soc_index(config["lookups"]["soc_index"])
             soc_df_input = load_soc_structure(config["lookups"]["soc_structure"])
-            soc_df = SocDB.create_soc_dataframe(soc_df_input)  # check if need to move
-            soc_index_df = soc_index_df.rename(
-                columns={
-                    "code": "soc_2020",
-                    "title": "natural_word",
-                }  # TODO fix once this is corrected in soc-classification-library
+            soc_df = SocDB.create_soc_dataframe(SocDB(soc_df_input).df)
+            structure_data_path = config["lookups"]["soc_structure"]
+            self.soc = load_hierarchy(
+                soc_df, soc_index_df, structure_data_path=structure_data_path
             )
-            soc_index_df["add"] = ""  # see above ^
-            soc_index_df["ind"] = ""  # see above ^
-            self.soc = load_hierarchy(soc_df, soc_index_df)
 
         item = self.soc[code]
         txt = "{" + f"Code: {item.soc_code}, Title: {item.group_title}"
@@ -222,7 +219,7 @@ class ClassificationLLM:
 
     def _prompt_candidate_list(
         self,
-        short_list: list[dict],
+        short_list: Union[list[dict], list[tuple[Document, float]]],  # list[dict],
         chars_limit: int = 14000,
         candidates_limit: int = 5,
         titles_limit: int = 3,
@@ -261,7 +258,10 @@ class ClassificationLLM:
         )
 
         for item in short_list:
-            if item["title"] not in a[item["code"][:code_digits]]:
+            if (
+                isinstance(item, dict)
+                and item["title"] not in a[item["code"][:code_digits]]
+            ):
                 a[item["code"][:code_digits]].append(item["title"])
 
         soc_candidates = [
@@ -282,7 +282,7 @@ class ClassificationLLM:
 
         return "\n".join(soc_candidates)
 
-    def sa_rag_soc_code(
+    def sa_rag_soc_code(  # noqa: PLR0913, C901
         self,
         industry_descr: str,
         job_title: Optional[str] = None,
@@ -290,7 +290,11 @@ class ClassificationLLM:
         expand_search_terms: bool = True,
         code_digits: int = 4,
         candidates_limit: int = 5,
-    ) -> SurveyAssistSocResponse:
+    ) -> tuple[
+        Union[SocResponse, SurveyAssistSocResponse],
+        Optional[list[dict[Any, Any]]],
+        Optional[Any],
+    ]:
         """Generates a SOC classification based on respondent's data using RAG approach.
 
         Args:
@@ -341,20 +345,27 @@ class ClassificationLLM:
             except ValueError as err:
                 logger.exception(err)
                 logger.warning("Error: Empty embedding vector store, exit early")
-                validated_answer = SocResponse(
+                validated_answer_sr = SocResponse(
                     codable=False,
                     soc_candidates=[],
                     reasoning="Error, Empty embedding vector store, exit early",
                 )
-                return validated_answer, None, None
+                return validated_answer_sr, None, None
 
         # Retrieve relevant SOC codes and format them for prompt
         if expand_search_terms:
-            short_list = self.embed.search_index_multi(
-                query=[industry_descr, job_title, job_description]
-            )
+
+            if self.embed is not None:
+                short_list = self.embed.search_index_multi(
+                    query=[industry_descr, job_title, job_description]
+                )
+            else:
+                raise ValueError("embedding_handler is not initialized.")
+
+        elif self.embed is not None:
+            short_list = self.embed.search_index(query=job_title)  # type: ignore
         else:
-            short_list = self.embed.search_index(query=job_title)
+            raise ValueError("embedding_handler is not initialized.")
 
         soc_codes = self._prompt_candidate_list(
             short_list, code_digits=code_digits, candidates_limit=candidates_limit
@@ -378,19 +389,19 @@ class ClassificationLLM:
         except ValueError as err:
             logger.exception(err)
             logger.warning("Error from LLMChain, exit early")
-            validated_answer = SurveyAssistSocResponse(
+            validated_answer_sa = SurveyAssistSocResponse(
                 soc_candidates=[],
                 reasoning="Error from LLMChain, exit early",
             )
-            return validated_answer, short_list, call_dict
+            return validated_answer_sa, short_list, call_dict
 
         if self.verbose:
             logger.debug(f"{response=}")
 
         # Parse the output to the desired format
-        parser = PydanticOutputParser(pydantic_object=SurveyAssistSocResponse)
+        parser = PydanticOutputParser(pydantic_object=SurveyAssistSocResponse)  # type: ignore
         try:
-            validated_answer = parser.parse(response["text"])
+            validated_answer_sa = parser.parse(response["text"])
         except ValueError as parse_error:
             logger.exception(parse_error)
             logger.warning(f"Failed to parse response:\n{response['text']}")
@@ -398,9 +409,9 @@ class ClassificationLLM:
             reasoning = (
                 f'ERROR parse_error=<{parse_error}>, response=<{response["text"]}>'
             )
-            validated_answer = SurveyAssistSocResponse(
+            validated_answer_sa = SurveyAssistSocResponse(
                 soc_candidates=[],
                 reasoning=reasoning,
             )
 
-        return validated_answer, short_list, call_dict
+        return validated_answer_sa, short_list, call_dict

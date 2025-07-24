@@ -7,6 +7,7 @@ and performing similarity searches.
 
 import logging
 import uuid
+from pathlib import Path
 from typing import Any, Optional, Union
 
 from autocorrect import Speller
@@ -41,24 +42,24 @@ def get_config() -> dict[str, dict[str, str]]:
         dict: A dictionary containing configuration details for the embedding model
         and lookup file paths.
     """
+    folder_dir = Path(__file__).parent
     return {
         "llm": {
             "llm_model_name": "gemini-1.5-flash",
             "embedding_model_name": "all-MiniLM-L6-v2",
-            "db_dir": "src/occupational_classification_utils/data/vector_store",
+            "db_dir": str(folder_dir.parent) + "/data/vector_store",
         },
         "lookups": {
             "soc_index": (
-                "src/occupational_classification_utils/data/soc_index/"
+                str(folder_dir.parent) + "/data/soc_index/"
                 "soc2020volume2thecodingindexexcel16102024.xlsx"
             ),
             "soc_structure": (
-                "src/occupational_classification_utils/data/soc_index/"
+                str(folder_dir.parent) + "/data/soc_index/"
                 "soc2020volume1structureanddescriptionofunitgroupsexcel16102024.xlsx"
             ),
             "soc_condensed": (
-                "src/occupational_classification_utils/data/example/"
-                "soc_4d_condensed.txt"
+                str(folder_dir.parent) + "/data/example/" "soc_4d_condensed.txt"
             ),
         },
     }
@@ -233,7 +234,7 @@ class EmbeddingHandler:
         )
 
     def search_index(
-        self, query: str, return_dicts: bool = True
+        self, query: Optional[str], return_dicts: bool = True
     ) -> Union[list[dict], list[tuple[Document, float]]]:
         """Returns k document chunks with the highest relevance to the query.
 
@@ -260,7 +261,7 @@ class EmbeddingHandler:
             ]
         return top_matches
 
-    def search_index_multi(self, query: list[str]) -> list[dict]:
+    def search_index_multi(self, query: list[Optional[str]]) -> list[dict]:
         """Returns k document chunks with the highest relevance to a list of query fields.
 
         Args:
@@ -274,7 +275,7 @@ class EmbeddingHandler:
         query = [x for x in query if x is not None]
         search_terms_list = set()
         for i in range(len(query)):
-            x = " ".join(query[: (i + 1)])
+            x = " ".join(str(query[: (i + 1)]))
             search_terms_list.add(x)
             search_terms_list.add(self.spell(x))
         short_list = [y for x in search_terms_list for y in self.search_index(query=x)]
