@@ -21,10 +21,9 @@ from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
-from langchain.chains.llm import LLMChain
 from langchain.docstore.document import Document
 from langchain.output_parsers import PydanticOutputParser
-from langchain_google_vertexai import VertexAI
+from langchain_google_vertexai import ChatVertexAI
 from langchain_openai import ChatOpenAI
 from occupational_classification.data_access.soc_data_access import (
     load_soc_index,
@@ -74,7 +73,7 @@ class ClassificationLLM:
     def __init__(  # noqa: PLR0913
         self,
         model_name: str = config["llm"]["llm_model_name"],
-        llm: Optional[Union[VertexAI, ChatOpenAI]] = None,
+        llm: Optional[Union[ChatVertexAI, ChatOpenAI]] = None,
         embedding_handler: Optional[EmbeddingHandler] = None,
         max_tokens: int = 1600,
         temperature: float = 0.0,
@@ -82,15 +81,16 @@ class ClassificationLLM:
         openai_api_key: Optional[str] = None,
     ):
         """Initialises the ClassificationLLM object."""
-        print(f"model_name: {model_name}")
         if llm is not None:
             self.llm = llm
         elif model_name.startswith("text-") or model_name.startswith("gemini"):
-            self.llm = VertexAI(
+            # Mirror sic-classification-utils: ChatVertexAI, europe-west1, thinking_budget=0 for Gemini 2.5
+            self.llm = ChatVertexAI(
                 model_name=model_name,
                 max_output_tokens=max_tokens,
                 temperature=temperature,
-                location="europe-west2",
+                location="europe-west1",
+                model_kwargs={"thinking_budget": 0},  # Reduce latency
             )
         elif model_name.startswith("gpt"):
             if openai_api_key is None:
@@ -99,7 +99,7 @@ class ClassificationLLM:
                 model=model_name,
                 api_key=openai_api_key,
                 temperature=temperature,
-                max_tokens=max_tokens,
+                model_kwargs={"max_tokens": max_tokens},
             )
         else:
             raise NotImplementedError("Unsupported model family")
@@ -290,6 +290,7 @@ class ClassificationLLM:
         expand_search_terms: bool = True,
         code_digits: int = 4,
         candidates_limit: int = 5,
+        short_list: Optional[list[dict[Any, Any]]] = None,
     ) -> tuple[
         Union[SocResponse, SurveyAssistSocResponse],
         Optional[list[dict[Any, Any]]],
@@ -297,24 +298,34 @@ class ClassificationLLM:
     ]:
         """Generates a SOC classification based on respondent's data using RAG approach.
 
+        Mirrors the pattern used in sic-classification-utils: when short_list is
+        provided (e.g. from an external vector store or embedding search), it is
+        used directly and the embedding handler is not called. When short_list is
+        None, the instance embedding handler is used to retrieve candidates.
+
         Args:
             industry_descr (str): The description of the industry.
             job_title (str, optional): The job title. Defaults to None.
             job_description (str, optional): The job description. Defaults to None.
             expand_search_terms (bool, optional): Whether to expand the search terms
-                to include job title and description. Defaults to True.
+                to include job title and description when using embedding handler.
+                Defaults to True. Ignored when short_list is provided.
             code_digits (int, optional): The number of digits in the generated
                 SOC code. Defaults to 4.
             candidates_limit (int, optional): The maximum number of SOC code candidates
                 to consider. Defaults to 5.
+            short_list (list[dict[Any, Any]], optional): A list of results from
+                embedding or vector store search (e.g. from soc-classification-vector-store).
+                Each dict should have "code" and "title" keys. When provided, the
+                embedding handler is not used.
 
         Returns:
             SurveyAssistSocResponse: The generated response to the query.
 
         Raises:
             ValueError: If there is an error during the parsing of the response.
-            ValueError: If the default embedding handler is required but
-                not loaded correctly.
+            ValueError: If short_list is None and the default embedding handler
+                is required but not loaded correctly.
 
         """
 
@@ -339,37 +350,41 @@ class ClassificationLLM:
             }
             return call_dict
 
-        if self.embed is None:
-            try:
-                self._load_embedding_handler()
-            except ValueError as err:
-                logger.exception(err)
-                logger.warning("Error: Empty embedding vector store, exit early")
-                validated_answer_sr = SocResponse(
-                    codable=False,
-                    soc_candidates=[],
-                    reasoning="Error, Empty embedding vector store, exit early",
-                )
-                return validated_answer_sr, None, None
+        if short_list is not None:
+            # Use provided short_list (e.g. from vector store API), mirroring SIC flow
+            soc_codes = self._prompt_candidate_list(
+                short_list, code_digits=code_digits, candidates_limit=candidates_limit
+            )
+        else:
+            # Use embedding handler to retrieve short list (existing behaviour)
+            if self.embed is None:
+                try:
+                    self._load_embedding_handler()
+                except ValueError as err:
+                    logger.exception(err)
+                    logger.warning("Error: Empty embedding vector store, exit early")
+                    validated_answer_sr = SocResponse(
+                        codable=False,
+                        soc_candidates=[],
+                        reasoning="Error, Empty embedding vector store, exit early",
+                    )
+                    return validated_answer_sr, None, None
 
-        # Retrieve relevant SOC codes and format them for prompt
-        if expand_search_terms:
-
-            if self.embed is not None:
-                short_list = self.embed.search_index_multi(
-                    query=[industry_descr, job_title, job_description]
-                )
+            if expand_search_terms:
+                if self.embed is not None:
+                    short_list = self.embed.search_index_multi(
+                        query=[industry_descr, job_title, job_description]
+                    )
+                else:
+                    raise ValueError("embedding_handler is not initialized.")
+            elif self.embed is not None:
+                short_list = self.embed.search_index(query=job_title)  # type: ignore
             else:
                 raise ValueError("embedding_handler is not initialized.")
 
-        elif self.embed is not None:
-            short_list = self.embed.search_index(query=job_title)  # type: ignore
-        else:
-            raise ValueError("embedding_handler is not initialized.")
-
-        soc_codes = self._prompt_candidate_list(
-            short_list, code_digits=code_digits, candidates_limit=candidates_limit
-        )
+            soc_codes = self._prompt_candidate_list(
+                short_list, code_digits=code_digits, candidates_limit=candidates_limit
+            )
 
         call_dict = prep_call_dict(
             industry_descr=industry_descr,
@@ -382,32 +397,39 @@ class ClassificationLLM:
             final_prompt = self.sa_soc_prompt_rag.format(**call_dict)
             logger.debug(final_prompt)
 
-        chain = LLMChain(llm=self.llm, prompt=self.sa_soc_prompt_rag)
+        # Use LCEL (prompt | llm) like sic-classification-utils so response has .content
+        chain = self.sa_soc_prompt_rag | self.llm
 
         try:
+            # Mirror SIC: use return_only_outputs=True and response.content
             response = chain.invoke(call_dict, return_only_outputs=True)
         except ValueError as err:
             logger.exception(err)
-            logger.warning("Error from LLMChain, exit early")
+            logger.warning("Error from chain, exit early")
             validated_answer_sa = SurveyAssistSocResponse(
                 soc_candidates=[],
-                reasoning="Error from LLMChain, exit early",
+                reasoning="Error from chain, exit early",
             )
             return validated_answer_sa, short_list, call_dict
 
         if self.verbose:
-            logger.debug(f"{response=}")
+            logger.debug("response type=%s, content=%s", type(response).__name__, getattr(response, "content", None))
+
+        # Mirror SIC exactly: str(response.content)
+        output_text = (str(getattr(response, "content", "")) or "").strip()
+        if not output_text:
+            logger.warning("Empty LLM content; response type=%s repr=%s", type(response).__name__, repr(response)[:200])
 
         # Parse the output to the desired format
         parser = PydanticOutputParser(pydantic_object=SurveyAssistSocResponse)  # type: ignore
         try:
-            validated_answer_sa = parser.parse(response["text"])
+            validated_answer_sa = parser.parse(output_text)
         except ValueError as parse_error:
             logger.exception(parse_error)
-            logger.warning(f"Failed to parse response:\n{response['text']}")
+            logger.warning("Failed to parse response:\n%s", output_text)
 
             reasoning = (
-                f'ERROR parse_error=<{parse_error}>, response=<{response["text"]}>'
+                f"ERROR parse_error=<{parse_error}>, response=<{output_text}>"
             )
             validated_answer_sa = SurveyAssistSocResponse(
                 soc_candidates=[],
