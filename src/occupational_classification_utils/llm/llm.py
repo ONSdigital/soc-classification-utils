@@ -37,6 +37,7 @@ from occupational_classification_utils.embed.embedding import (
     get_config,
 )
 from occupational_classification_utils.llm.prompt import (
+    FIX_PARSING_PROMPT,
     SA_SOC_PROMPT_RAG,
     SOC_PROMPT_PYDANTIC,
 )
@@ -282,7 +283,7 @@ class ClassificationLLM:
 
         return "\n".join(soc_candidates)
 
-    def sa_rag_soc_code(  # noqa: PLR0913, C901
+    async def sa_rag_soc_code(  # noqa: PLR0913, C901
         self,
         industry_descr: str,
         job_title: Optional[str] = None,
@@ -397,12 +398,10 @@ class ClassificationLLM:
             final_prompt = self.sa_soc_prompt_rag.format(**call_dict)
             logger.debug(final_prompt)
 
-        # Use LCEL (prompt | llm) like sic-classification-utils so response has .content
         chain = self.sa_soc_prompt_rag | self.llm
 
         try:
-            # Mirror SIC: use return_only_outputs=True and response.content
-            response = chain.invoke(call_dict, return_only_outputs=True)
+            response = await chain.ainvoke(call_dict, return_only_outputs=True)
         except ValueError as err:
             logger.exception(err)
             logger.warning("Error from chain, exit early")
@@ -413,27 +412,45 @@ class ClassificationLLM:
             return validated_answer_sa, short_list, call_dict
 
         if self.verbose:
-            logger.debug("response type=%s, content=%s", type(response).__name__, getattr(response, "content", None))
+            logger.debug(f"LLM response: {response}")
 
-        # Mirror SIC exactly: str(response.content)
-        output_text = (str(getattr(response, "content", "")) or "").strip()
-        if not output_text:
-            logger.warning("Empty LLM content; response type=%s repr=%s", type(response).__name__, repr(response)[:200])
-
-        # Parse the output to the desired format
         parser = PydanticOutputParser(pydantic_object=SurveyAssistSocResponse)  # type: ignore
         try:
-            validated_answer_sa = parser.parse(output_text)
-        except ValueError as parse_error:
-            logger.exception(parse_error)
-            logger.warning("Failed to parse response:\n%s", output_text)
+            validated_answer_sa = parser.parse(str(response.content))
+        except (ValueError, AttributeError) as parse_error:
+            logger.error(
+                f"Failed to parse response: {parse_error}", error=str(parse_error)
+            )
+            logger.warning(
+                "Failed to parse response", response_content=str(response.content)
+            )
 
-            reasoning = (
-                f"ERROR parse_error=<{parse_error}>, response=<{output_text}>"
-            )
-            validated_answer_sa = SurveyAssistSocResponse(
-                soc_candidates=[],
-                reasoning=reasoning,
-            )
+            try:
+                chain = FIX_PARSING_PROMPT | self.llm
+                response = await chain.ainvoke(
+                    {
+                        "llm_output": str(response.content),
+                        "format_instructions": parser.get_format_instructions(),
+                    },
+                    return_only_outputs=True,
+                )
+                validated_answer_sa = parser.parse(str(response.content))
+                logger.debug("Successfully parsed reformatted response.")
+            except (ValueError, AttributeError) as parse_error2:
+                logger.error(
+                    f"Failed to parse response again: {parse_error2}",
+                    error=str(parse_error2),
+                )
+                logger.warning(
+                    "Failed to parse response again",
+                    response_content=str(response.content),
+                )
+                reasoning = (
+                    f"ERROR parse_error=<{parse_error2}>, response=<{response.content}>"
+                )
+                validated_answer_sa = SurveyAssistSocResponse(
+                    soc_candidates=[],
+                    reasoning=reasoning,
+                )
 
         return validated_answer_sa, short_list, call_dict
