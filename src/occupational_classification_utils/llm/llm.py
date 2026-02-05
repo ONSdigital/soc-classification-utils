@@ -21,6 +21,7 @@ from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
+from langchain.chains.llm import LLMChain
 from langchain.docstore.document import Document
 from langchain.output_parsers import PydanticOutputParser
 from langchain_google_vertexai import ChatVertexAI
