@@ -86,7 +86,7 @@ class ClassificationLLM:
         if llm is not None:
             self.llm = llm
         elif model_name.startswith("text-") or model_name.startswith("gemini"):
-            # Mirror sic-classification-utils: ChatVertexAI, europe-west1, thinking_budget=0 for Gemini 2.5
+            # Mirror SIC: ChatVertexAI, europe-west1, thinking_budget=0
             self.llm = ChatVertexAI(
                 model_name=model_name,
                 max_output_tokens=max_tokens,
@@ -99,7 +99,7 @@ class ClassificationLLM:
                 raise NotImplementedError("Need to provide an OpenAI API key")
             self.llm = ChatOpenAI(
                 model=model_name,
-                api_key=openai_api_key,
+                api_key=openai_api_key,  # type: ignore[arg-type]
                 temperature=temperature,
                 model_kwargs={"max_tokens": max_tokens},
             )
@@ -127,7 +127,7 @@ class ClassificationLLM:
             Expecting existing & populated persistent vector store."""
         )
         self.embed = EmbeddingHandler()
-        if self.embed._index_size == 0:
+        if self.embed._index_size == 0:  # pylint: disable=protected-access
             raise ValueError(
                 """The retrieved embedding handler has an empty vector store.
                 Please embed an index before using in the ClassificationLLM."""
@@ -171,13 +171,13 @@ class ClassificationLLM:
             return_only_outputs=True,
         )
         if self.verbose:
-            logger.debug(f"{response=}")
+            logger.debug("LLM response: %s", response)
         # Parse the output to desired format with one retry
         parser = PydanticOutputParser(pydantic_object=SocResponse)  # type: ignore
         try:
             validated_answer_sr = parser.parse(response["text"])
-        except Exception as parse_error:
-            logger.error(f"Unable to parse llm response: {parse_error!s}")
+        except ValueError as parse_error:
+            logger.error("Unable to parse llm response: %s", parse_error)
             reasoning = (
                 f'ERROR parse_error=<{parse_error}>, response=<{response["text"]}>'
             )
@@ -188,7 +188,10 @@ class ClassificationLLM:
         return validated_answer_sr
 
     def _prompt_candidate(
-        self, code: str, job_titles: list[str], include_all: bool = False
+        self,
+        code: str,
+        job_titles: list[str],
+        include_all: bool = False,  # pylint: disable=unused-argument
     ) -> str:
         """Reformat the candidate activities for the prompt.
 
@@ -284,7 +287,8 @@ class ClassificationLLM:
 
         return "\n".join(soc_candidates)
 
-    async def sa_rag_soc_code(  # noqa: PLR0913, C901
+    # pylint: disable=too-many-branches,too-many-statements
+    async def sa_rag_soc_code(  # noqa: PLR0912, PLR0913, PLR0915, C901
         self,
         industry_descr: str,
         job_title: Optional[str] = None,
@@ -380,12 +384,16 @@ class ClassificationLLM:
                 else:
                     raise ValueError("embedding_handler is not initialized.")
             elif self.embed is not None:
-                short_list = self.embed.search_index(query=job_title)  # type: ignore
+                short_list = self.embed.search_index(  # type: ignore[assignment]
+                    query=job_title or ""
+                )
             else:
                 raise ValueError("embedding_handler is not initialized.")
 
             soc_codes = self._prompt_candidate_list(
-                short_list, code_digits=code_digits, candidates_limit=candidates_limit
+                short_list,  # type: ignore[arg-type]
+                code_digits=code_digits,
+                candidates_limit=candidates_limit,
             )
 
         call_dict = prep_call_dict(
@@ -413,17 +421,16 @@ class ClassificationLLM:
             return validated_answer_sa, short_list, call_dict
 
         if self.verbose:
-            logger.debug(f"LLM response: {response}")
+            logger.debug("LLM response: %s", response)
 
         parser = PydanticOutputParser(pydantic_object=SurveyAssistSocResponse)  # type: ignore
         try:
             validated_answer_sa = parser.parse(str(response.content))
         except (ValueError, AttributeError) as parse_error:
-            logger.error(
-                f"Failed to parse response: {parse_error}", error=str(parse_error)
-            )
+            logger.error("Failed to parse response: %s", parse_error)
             logger.warning(
-                "Failed to parse response", response_content=str(response.content)
+                "Failed to parse response; response_content=%s",
+                str(getattr(response, "content", "")),
             )
 
             try:
@@ -438,13 +445,10 @@ class ClassificationLLM:
                 validated_answer_sa = parser.parse(str(response.content))
                 logger.debug("Successfully parsed reformatted response.")
             except (ValueError, AttributeError) as parse_error2:
-                logger.error(
-                    f"Failed to parse response again: {parse_error2}",
-                    error=str(parse_error2),
-                )
+                logger.error("Failed to parse response again: %s", parse_error2)
                 logger.warning(
-                    "Failed to parse response again",
-                    response_content=str(response.content),
+                    "Failed to parse response again; response_content=%s",
+                    str(getattr(response, "content", "")),
                 )
                 reasoning = (
                     f"ERROR parse_error=<{parse_error2}>, response=<{response.content}>"
