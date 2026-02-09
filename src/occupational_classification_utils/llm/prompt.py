@@ -112,8 +112,8 @@ on the list you respond with.
 ===Output===
 """
 
-parser = PydanticOutputParser(  # type: ignore # Suspect langchain ver bug
-    pydantic_object=SurveyAssistSocResponse
+parser = PydanticOutputParser(
+    pydantic_object=SurveyAssistSocResponse  # type: ignore # Suspect langchain ver bug
 )
 
 SA_SOC_PROMPT_RAG = PromptTemplate.from_template(
@@ -142,8 +142,8 @@ to determine the correct code and suggest few most likely codes.
 
 ===Output===
 """
-parser = PydanticOutputParser(  # type: ignore # Suspect langchain ver bug
-    pydantic_object=RagResponse
+parser = PydanticOutputParser(
+    pydantic_object=RagResponse  # type: ignore # Suspect langchain ver bug
 )
 
 GENERAL_PROMPT_RAG = PromptTemplate.from_template(
