@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 from autocorrect import Speller
-from langchain.docstore.document import Document
+from langchain_chroma import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings, VertexAIEmbeddings
-from langchain_community.vectorstores import Chroma  # pylint: disable=no-name-in-module
+from langchain_core.documents import Document
 from occupational_classification.data_access.soc_data_access import (
     load_soc_index,
 )
@@ -234,7 +234,7 @@ class EmbeddingHandler:
         )
 
     def search_index(
-        self, query: Optional[str], return_dicts: bool = True
+        self, query: str, return_dicts: bool = True
     ) -> Union[list[dict], list[tuple[Document, float]]]:
         """Returns k document chunks with the highest relevance to the query.
 
