@@ -27,7 +27,7 @@ CANDIDATE_LIMIT = 100
 
 try:
     embed.embed_index(from_empty=False)
-except Exception:
+except Exception:  # pylint: disable=broad-exception-caught
     embed.embed_index(from_empty=True)
 
 # The vector store is not yet decoupled from the LLM.
@@ -37,7 +37,8 @@ gemini_llm = ClassificationLLM(model_name=LLM_MODEL)
 
 
 async def run_sa_rag() -> None:
-    response, short_list, prompt = await gemini_llm.sa_rag_soc_code(
+    """Run the Survey Assist RAG SOC classification example."""
+    response, _short_list, _prompt = await gemini_llm.sa_rag_soc_code(
         ORG_DESCRIPTION,
         JOB_TITLE,
         JOB_DESCRIPTION,
