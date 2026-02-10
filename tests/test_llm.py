@@ -22,7 +22,7 @@ LOCATION = "europe-west1"
 # Mock LLM connections
 @pytest.fixture
 async def classification_llm_with_soc_sa_rag_soc():
-    """ClassificationLLM with mocked ainvoke for sa_rag_soc_code
+    """ClassificationLLM with mocked ainvoke (async invoke) for sa_rag_soc_code
     (mirrors SIC classification_llm_with_sic_sa_rag_sic).
 
     Uses unittest.mock so we don't depend on the pytest-mock plugin.
@@ -114,7 +114,7 @@ async def test_llm_response_mocked_sa_rag_soc_code(
 
     Args:
         classification_llm_with_soc_sa_rag_soc: Fixture providing ClassificationLLM
-            with mocked ainvoke for sa_rag_soc_code.
+            with mocked ainvoke (async invoke) for sa_rag_soc_code.
 
     Asserts:
         First element is SurveyAssistSocResponse, second is list, third is dict;
