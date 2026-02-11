@@ -1,0 +1,4 @@
+2314: Primary education teaching professionals
+2313: Secondary education teaching professionals
+2311: Higher education teaching professionals
+2321: Head teachers and principals
