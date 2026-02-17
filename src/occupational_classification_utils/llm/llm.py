@@ -42,10 +42,7 @@ from occupational_classification_utils.llm.prompt import (
     SA_SOC_PROMPT_RAG,
     SOC_PROMPT_PYDANTIC,
 )
-from occupational_classification_utils.models.response_model import (
-    SocResponse,
-    SurveyAssistSocResponse,
-)
+from occupational_classification_utils.models.response_model import SocResponse
 
 logger = logging.getLogger(__name__)
 config = get_config()
@@ -297,15 +294,12 @@ class ClassificationLLM:
         code_digits: int = 4,
         candidates_limit: int = 5,
         short_list: Optional[list[dict[Any, Any]]] = None,
-    ) -> tuple[
-        Union[SocResponse, SurveyAssistSocResponse],
-        Optional[list[dict[Any, Any]]],
-        Optional[Any],
-    ]:
+    ) -> tuple[SocResponse, Optional[list[dict[Any, Any]]], Optional[Any]]:
         """Generates a SOC classification based on respondent's data using RAG approach.
 
         Caller must provide short_list (e.g. from vector store API). Mirrors
-        sic-classification-utils sa_rag_sic_code (raise when short_list is None).
+        sic-classification-utils sa_rag_sic_code (raise when short_list is None;
+        use SocResponse throughout, align with SIC).
 
         Args:
             industry_descr (str): The description of the industry.
@@ -323,7 +317,7 @@ class ClassificationLLM:
                 embedding handler is not used.
 
         Returns:
-            SurveyAssistSocResponse: The generated response to the query.
+            SocResponse: The generated response to the query.
 
         Raises:
             ValueError: If there is an error during the parsing of the response.
@@ -380,18 +374,20 @@ class ClassificationLLM:
         except ValueError as err:
             logger.exception(err)
             logger.warning("Error from chain, exit early")
-            validated_answer_sa = SurveyAssistSocResponse(
+            validated_answer = SocResponse(
+                codable=False,
+                followup="Follow-up question not available due to error.",
                 soc_candidates=[],
                 reasoning="Error from chain, exit early",
             )
-            return validated_answer_sa, short_list, call_dict
+            return validated_answer, short_list, call_dict
 
         if self.verbose:
             logger.debug("LLM response: %s", response)
 
-        parser = PydanticOutputParser(pydantic_object=SurveyAssistSocResponse)  # type: ignore
+        parser = PydanticOutputParser(pydantic_object=SocResponse)  # type: ignore
         try:
-            validated_answer_sa = parser.parse(str(response.content))
+            validated_answer = parser.parse(str(response.content))
         except (ValueError, AttributeError) as parse_error:
             logger.error("Failed to parse response: %s", parse_error)
             logger.warning(
@@ -408,7 +404,7 @@ class ClassificationLLM:
                     },
                     return_only_outputs=True,
                 )
-                validated_answer_sa = parser.parse(str(response.content))
+                validated_answer = parser.parse(str(response.content))
                 logger.debug("Successfully parsed reformatted response.")
             except (ValueError, AttributeError) as parse_error2:
                 logger.error("Failed to parse response again: %s", parse_error2)
@@ -419,9 +415,11 @@ class ClassificationLLM:
                 reasoning = (
                     f"ERROR parse_error=<{parse_error2}>, response=<{response.content}>"
                 )
-                validated_answer_sa = SurveyAssistSocResponse(
+                validated_answer = SocResponse(
+                    codable=False,
+                    followup="Follow-up question not available due to error.",
                     soc_candidates=[],
                     reasoning=reasoning,
                 )
 
-        return validated_answer_sa, short_list, call_dict
+        return validated_answer, short_list, call_dict
