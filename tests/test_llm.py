@@ -11,9 +11,7 @@ from langchain_google_vertexai import ChatVertexAI
 from langchain_openai import ChatOpenAI
 
 from occupational_classification_utils.llm.llm import ClassificationLLM
-from occupational_classification_utils.models.response_model import (
-    SurveyAssistSocResponse,
-)
+from occupational_classification_utils.models.response_model import SocResponse
 
 MODEL_NAME = "gemini-2.5-flash"
 LOCATION = "europe-west1"
@@ -28,6 +26,7 @@ async def classification_llm_with_soc_sa_rag_soc():
     Uses unittest.mock so we don't depend on the pytest-mock plugin.
     """
     mock_object_dict = {
+        "codable": True,
         "followup": "Example follow-up from the LLM.",
         "soc_code": "2314",
         "soc_descriptive": "Primary education teaching professionals",
@@ -117,7 +116,7 @@ async def test_llm_response_mocked_sa_rag_soc_code(
             with mocked ainvoke (async invoke) for sa_rag_soc_code.
 
     Asserts:
-        First element is SurveyAssistSocResponse, second is list, third is dict;
+        First element is SocResponse, second is list, third is dict;
         soc_code on response is as expected.
     """
     short_list = [
@@ -133,7 +132,7 @@ async def test_llm_response_mocked_sa_rag_soc_code(
         job_description="teach children",
         short_list=short_list,
     )
-    assert isinstance(result[0], (SurveyAssistSocResponse,))
+    assert isinstance(result[0], SocResponse)
     assert isinstance(result[1], list)
     assert isinstance(result[2], dict)
     assert result[0].soc_code == "2314"
