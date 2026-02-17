@@ -38,6 +38,7 @@ ipykernel = "^6.29.5"
 # soc-classification-library = {git = "https://github.com/ONSdigital/soc-classification-library.git", rev = "v0.1.1"}
 soc-classification-library = {git = "https://github.com/ONSdigital/soc-classification-library.git"}
 jupytext = "^1.17.1"
+posthog = ">=2.4.0,<6.0.0"
 
 [tool.poetry.group.dev.dependencies]
 mkdocs-material = "^9.6.9"
