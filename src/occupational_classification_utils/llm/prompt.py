@@ -29,7 +29,6 @@ from occupational_classification_utils.embed.embedding import get_config
 from occupational_classification_utils.models.response_model import (
     RagResponse,
     SocResponse,
-    SurveyAssistSocResponse,
 )
 from occupational_classification_utils.utils.common_utils import (
     load_text_from_config,
@@ -113,7 +112,7 @@ on the list you respond with.
 """
 
 parser = PydanticOutputParser(
-    pydantic_object=SurveyAssistSocResponse  # type: ignore # Suspect langchain ver bug
+    pydantic_object=SocResponse  # type: ignore # Suspect langchain ver bug
 )
 
 SA_SOC_PROMPT_RAG = PromptTemplate.from_template(
