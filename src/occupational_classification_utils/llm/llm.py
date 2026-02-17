@@ -288,7 +288,7 @@ class ClassificationLLM:
         return "\n".join(soc_candidates)
 
     # pylint: disable=too-many-branches,too-many-statements
-    async def sa_rag_soc_code(  # noqa: PLR0912, PLR0913, PLR0915, C901
+    async def sa_rag_soc_code(  # noqa: PLR0913
         self,
         industry_descr: str,
         job_title: Optional[str] = None,
@@ -304,18 +304,15 @@ class ClassificationLLM:
     ]:
         """Generates a SOC classification based on respondent's data using RAG approach.
 
-        Mirrors the pattern used in sic-classification-utils: when short_list is
-        provided (e.g. from an external vector store or embedding search), it is
-        used directly and the embedding handler is not called. When short_list is
-        None, the instance embedding handler is used to retrieve candidates.
+        Caller must provide short_list (e.g. from vector store API). Mirrors
+        sic-classification-utils sa_rag_sic_code (raise when short_list is None).
 
         Args:
             industry_descr (str): The description of the industry.
             job_title (str, optional): The job title. Defaults to None.
             job_description (str, optional): The job description. Defaults to None.
-            expand_search_terms (bool, optional): Whether to expand the search terms
-                to include job title and description when using embedding handler.
-                Defaults to True. Ignored when short_list is provided.
+            expand_search_terms (bool, optional): Kept for API compatibility;
+                unused (short_list is required from caller). Defaults to True.
             code_digits (int, optional): The number of digits in the generated
                 SOC code. Defaults to 4.
             candidates_limit (int, optional): The maximum number of SOC code candidates
@@ -330,10 +327,10 @@ class ClassificationLLM:
 
         Raises:
             ValueError: If there is an error during the parsing of the response.
-            ValueError: If short_list is None and the default embedding handler
-                is required but not loaded correctly.
+            ValueError: If short_list is None.
 
         """
+        _ = expand_search_terms  # API compatibility; unused when short_list required
 
         def prep_call_dict(industry_descr, job_title, job_description, soc_codes):
             # Helper function to prepare the call dictionary
@@ -356,45 +353,14 @@ class ClassificationLLM:
             }
             return call_dict
 
-        if short_list is not None:
-            # Use provided short_list (e.g. from vector store API), mirroring SIC flow
-            soc_codes = self._prompt_candidate_list(
-                short_list, code_digits=code_digits, candidates_limit=candidates_limit
+        if short_list is None:
+            raise ValueError(
+                "Short list is None - list provided from embedding search."
             )
-        else:
-            # Use embedding handler to retrieve short list (existing behaviour)
-            if self.embed is None:
-                try:
-                    self._load_embedding_handler()
-                except ValueError as err:
-                    logger.exception(err)
-                    logger.warning("Error: Empty embedding vector store, exit early")
-                    validated_answer_sr = SocResponse(
-                        codable=False,
-                        soc_candidates=[],
-                        reasoning="Error, Empty embedding vector store, exit early",
-                    )
-                    return validated_answer_sr, None, None
 
-            if expand_search_terms:
-                if self.embed is not None:
-                    short_list = self.embed.search_index_multi(
-                        query=[industry_descr, job_title, job_description]
-                    )
-                else:
-                    raise ValueError("embedding_handler is not initialized.")
-            elif self.embed is not None:
-                short_list = self.embed.search_index(  # type: ignore[assignment]
-                    query=job_title or ""
-                )
-            else:
-                raise ValueError("embedding_handler is not initialized.")
-
-            soc_codes = self._prompt_candidate_list(
-                short_list,  # type: ignore[arg-type]
-                code_digits=code_digits,
-                candidates_limit=candidates_limit,
-            )
+        soc_codes = self._prompt_candidate_list(
+            short_list, code_digits=code_digits, candidates_limit=candidates_limit
+        )
 
         call_dict = prep_call_dict(
             industry_descr=industry_descr,
