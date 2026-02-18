@@ -25,16 +25,14 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain_core.documents import Document
 from langchain_google_vertexai import ChatVertexAI
 from langchain_openai import ChatOpenAI
-from occupational_classification.data_access.soc_data_access import (
-    load_soc_index,
-    load_soc_structure,
-)
-from occupational_classification.hierarchy.soc_hierarchy import load_hierarchy
-from occupational_classification.meta.soc_meta import SocDB, SocMeta
 from pydantic import SecretStr
 from survey_assist_utils.logging import get_logger
 
 from occupational_classification_utils.embed.embedding import get_config
+from occupational_classification_utils.utils.soc_data_access import (
+    get_soc_meta,
+    load_soc_hierarchy,
+)
 from occupational_classification_utils.llm.prompt import (
     FIX_PARSING_PROMPT,
     SA_SOC_PROMPT_RAG,
@@ -101,9 +99,8 @@ class ClassificationLLM:
         else:
             raise NotImplementedError("Unsupported model family")
 
-        soc_df_input = config["lookups"]["soc_structure"]
+        self.soc_meta = get_soc_meta(config["lookups"]["soc_structure"])
         self.soc_prompt = SOC_PROMPT_PYDANTIC
-        self.soc_meta = SocMeta(soc_df_input).soc_meta
         self.sa_soc_prompt_rag = SA_SOC_PROMPT_RAG
         self.soc: Optional[pd.DataFrame] = None
         self.verbose = verbose
@@ -180,12 +177,9 @@ class ClassificationLLM:
             str: A formatted string containing the code, title, and example activities.
         """
         if self.soc is None:
-            soc_index_df = load_soc_index(config["lookups"]["soc_index"])
-            soc_df_input = load_soc_structure(config["lookups"]["soc_structure"])
-            soc_df = SocDB.create_soc_dataframe(SocDB(soc_df_input).df)
-            structure_data_path = config["lookups"]["soc_structure"]
-            self.soc = load_hierarchy(
-                soc_df, soc_index_df, structure_data_path=structure_data_path
+            self.soc = load_soc_hierarchy(
+                config["lookups"]["soc_index"],
+                config["lookups"]["soc_structure"],
             )
 
         item = self.soc[code]
