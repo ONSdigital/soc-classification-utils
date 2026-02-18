@@ -6,6 +6,7 @@ and performing similarity searches.
 """
 
 import logging
+import os
 import uuid
 from pathlib import Path
 from typing import Any, Optional, Union
@@ -67,6 +68,34 @@ def get_config() -> dict[str, dict[str, str]]:
 
 
 config = get_config()
+MAX_BATCH_SIZE = 5400
+
+
+class CustomVertexAIEmbeddings(VertexAIEmbeddings):
+    """Custom VertexAIEmbeddings to specify task type for embeddings."""
+
+    def embed_documents(
+        self,
+        texts: list[str],
+        batch_size: int = 0,
+        *,
+        embeddings_task_type="SEMANTIC_SIMILARITY",
+    ) -> list[list[float]]:
+        """Embeds a list of documents using the specified task type."""
+        return super().embed_documents(
+            texts,
+            batch_size=batch_size,
+            embeddings_task_type=embeddings_task_type,
+        )
+
+    def embed_query(
+        self,
+        text: str,
+        *,
+        embeddings_task_type="SEMANTIC_SIMILARITY",
+    ) -> list[float]:
+        """Embeds a single query using the specified task type."""
+        return super().embed_query(text, embeddings_task_type=embeddings_task_type)
 
 
 class EmbeddingHandler:
@@ -99,14 +128,23 @@ class EmbeddingHandler:
         """
         self.embeddings: Any  # Use Any if no common base type exists
         if embedding_model_name.startswith(("textembedding-", "text-embedding-")):
-            self.embeddings = VertexAIEmbeddings(model=embedding_model_name)
+            self.embeddings = CustomVertexAIEmbeddings(model=embedding_model_name)
         else:
             self.embeddings = HuggingFaceEmbeddings(model_name=embedding_model_name)
+
+        logger.info("Using embedding model: %s", embedding_model_name)
+
         self.db_dir = db_dir
         self.vector_store = self._create_vector_store()
         self.k_matches = k_matches
         self.spell = Speller()
         self._index_size = self.vector_store._client.get_collection("langchain").count()
+
+        logger.info(
+            "Vector store created in: %s containing %s entries.",
+            self.db_dir,
+            self._index_size,
+        )
 
         # 🔄 Update shared config
         embedding_config["embedding_model_name"] = embedding_model_name
@@ -116,6 +154,7 @@ class EmbeddingHandler:
         embedding_config["db_dir"] = db_dir
         embedding_config["matches"] = self.k_matches
         embedding_config["index_size"] = self._index_size
+        logger.debug("EmbeddingHandler initialised with config: %s", embedding_config)
 
     def _create_vector_store(self) -> Chroma:
         """Initializes the Chroma vector store.
@@ -124,13 +163,31 @@ class EmbeddingHandler:
             Chroma: The LangChain vector store object for Chroma.
         """
         if self.db_dir is None:
+            logger.warning("No db_dir provided; using in-memory vector store.")
             return Chroma(  # pylint: disable=not-callable
-                embedding_function=self.embeddings
+                embedding_function=self.embeddings,
+                collection_metadata={"hnsw:space": "l2"},
             )
         # else
-        return Chroma(  # pylint: disable=not-callable
-            embedding_function=self.embeddings, persist_directory=self.db_dir
-        )
+
+        if not os.path.exists(self.db_dir):
+            logger.warning("Persist directory does not exist: %s", self.db_dir)
+        else:
+            logger.debug("Persist directory exists: %s", self.db_dir)
+            logger.debug("Readable: %s", os.access(self.db_dir, os.R_OK))
+            logger.debug("Writable: %s", os.access(self.db_dir, os.W_OK))
+
+        try:
+            chroma = Chroma(  # pylint: disable=not-callable
+                embedding_function=self.embeddings,
+                persist_directory=self.db_dir,
+                collection_metadata={"hnsw:space": "l2"},
+            )
+            logger.info("Vector store created successfully.")
+            return chroma
+        except Exception as e:
+            logger.exception("Failed to create vector store: %s", e)
+            raise
 
     def embed_index(  # pylint: disable=too-many-arguments, too-many-positional-arguments, too-many-locals
         self,
@@ -208,10 +265,19 @@ class EmbeddingHandler:
                 #     )
                 #     ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, row["text"])))
 
-        self.vector_store.add_documents(docs, ids=ids)
+        def split_into_batches(data, batch_size):
+            for i in range(0, len(data), batch_size):
+                yield data[i : i + batch_size]
+
+        for batch_docs, batch_ids in zip(
+            split_into_batches(docs, MAX_BATCH_SIZE),
+            split_into_batches(ids, MAX_BATCH_SIZE),
+        ):
+            self.vector_store.add_documents(batch_docs, ids=batch_ids)
         self._index_size = self.vector_store._client.get_collection(  # pylint: disable=protected-access
             "langchain"
         ).count()
+
         logger.debug(
             "Inserted %s entries into vector embedding database.", f"{len(docs):,}"
         )
@@ -231,6 +297,7 @@ class EmbeddingHandler:
         embedding_config["llm_model_name"] = config["llm"].get(
             "llm_model_name", "unknown"
         )
+        logger.info("Embedding config updated: %s", embedding_config)
 
     def search_index(
         self, query: str, return_dicts: bool = True
@@ -260,7 +327,7 @@ class EmbeddingHandler:
             ]
         return top_matches
 
-    def search_index_multi(self, query: list[Optional[str]]) -> list[dict]:
+    def search_index_multi(self, query: list[str]) -> list[dict]:
         """Returns k document chunks with the highest relevance to a list of query fields.
 
         Args:
@@ -274,7 +341,7 @@ class EmbeddingHandler:
         query = [x for x in query if x is not None]
         search_terms_list = set()
         for i in range(len(query)):
-            x = " ".join(str(query[: (i + 1)]))
+            x = " ".join(query[: (i + 1)])
             search_terms_list.add(x)
             search_terms_list.add(self.spell(x))
         short_list = [y for x in search_terms_list for y in self.search_index(query=x)]
