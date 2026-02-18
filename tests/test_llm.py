@@ -98,7 +98,7 @@ def test_llm_model_default():
 
 @pytest.mark.llm
 def test_model_name():
-    assert ClassificationLLM().llm.model_name == "gemini-1.5-flash"
+    assert ClassificationLLM().llm.model_name == "gemini-1.0-pro"
 
 
 @pytest.mark.llm

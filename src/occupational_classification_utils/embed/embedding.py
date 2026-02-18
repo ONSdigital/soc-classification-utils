@@ -47,7 +47,7 @@ def get_config() -> dict[str, dict[str, str]]:
     folder_dir = Path(__file__).parent
     return {
         "llm": {
-            "llm_model_name": "gemini-1.5-flash",
+            "llm_model_name": "gemini-1.0-pro",
             "embedding_model_name": "all-MiniLM-L6-v2",
             "db_dir": str(folder_dir.parent) + "/data/vector_store",
         },

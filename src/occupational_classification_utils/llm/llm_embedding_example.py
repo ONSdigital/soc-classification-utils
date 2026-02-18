@@ -19,7 +19,7 @@ from occupational_classification_utils.llm.llm import ClassificationLLM
 embed = EmbeddingHandler()
 
 EXAMPLE_QUERY = "school teacher primary education"
-LLM_MODEL = "gemini-1.5-flash"
+LLM_MODEL = "gemini-1.0-pro"
 JOB_TITLE = "school teacher"
 JOB_DESCRIPTION = "teach maths"
 ORG_DESCRIPTION = "school"

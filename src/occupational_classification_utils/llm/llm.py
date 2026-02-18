@@ -81,12 +81,12 @@ class ClassificationLLM:
         if llm is not None:
             self.llm = llm
         elif model_name.startswith("text-") or model_name.startswith("gemini"):
-            # Mirror SIC: ChatVertexAI, europe-west2, thinking_budget=0
+            # Mirror SIC: ChatVertexAI, europe-west1, thinking_budget=0
             self.llm = ChatVertexAI(
                 model_name=model_name,
                 max_output_tokens=max_tokens,
                 temperature=temperature,
-                location="europe-west2",
+                location="europe-west1",
                 model_kwargs={"thinking_budget": 0},  # Reduce latency
             )
         elif model_name.startswith("gpt"):
