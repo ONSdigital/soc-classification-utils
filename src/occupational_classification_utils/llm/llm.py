@@ -15,7 +15,6 @@ Functions:
     (None at the module level)
 """
 
-import logging
 from collections import defaultdict
 from functools import lru_cache
 from typing import Any, Optional, Union
@@ -41,8 +40,9 @@ from occupational_classification_utils.llm.prompt import (
     SOC_PROMPT_PYDANTIC,
 )
 from occupational_classification_utils.models.response_model import SocResponse
+from survey_assist_utils.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 config = get_config()
 
 
@@ -62,7 +62,7 @@ class ClassificationLLM:
         max_tokens (int): Maximum number of tokens to generate. Defaults to 1600.
         temperature (float): Temperature of the LLM model. Defaults to 0.0.
         verbose (bool): Whether to print verbose output. Defaults to False.
-        openai_api_key (SecretStr): OpenAI API key. Optional, but needed for OpenAI models.
+        openai_api_key (str): OpenAI API key. Optional, but needed for OpenAI models.
     """
 
     def __init__(  # noqa: PLR0913
@@ -75,6 +75,9 @@ class ClassificationLLM:
         openai_api_key: Optional[SecretStr] = None,
     ):
         """Initialises the ClassificationLLM object."""
+        logger.info(
+            f"Init LLM {llm} model: {model_name} max_tokens: {max_tokens} temp: {temperature}"
+        )
         if llm is not None:
             self.llm = llm
         elif model_name.startswith("text-") or model_name.startswith("gemini"):
