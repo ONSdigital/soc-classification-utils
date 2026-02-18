@@ -31,7 +31,7 @@ from occupational_classification_utils.models.response_model import (
     SocResponse,
 )
 from occupational_classification_utils.utils.soc_data_access import (
-    load_text_from_config,
+    load_soc_index,
 )
 
 config = get_config()
@@ -61,8 +61,8 @@ needed to determine it. Make sure to use the provided 2020 SOC index.
 {soc_index}
 """
 
-# Load the SOC index from the configuration (data-access layer accepts tuple)
-soc_index = load_text_from_config(config["lookups"]["soc_condensed"])
+# Load the full SOC index from the configuration (mirror SIC: full index into one-shot prompt)
+soc_index = load_soc_index(config["lookups"]["soc_index"])
 
 parser = PydanticOutputParser(  # type: ignore # Suspect langchain ver bug
     pydantic_object=SocResponse
