@@ -212,7 +212,17 @@ class EmbeddingHandler:
             soc_structure_file (optional): Custom path or file-like object to override
                 default SOC structure source.
         """
+        logger.info(
+            "Embedding index: from_empty=%s, soc=%s, file_object=%s, "
+            "soc_index_file=%s, soc_structure_file=%s",
+            from_empty,
+            soc,
+            file_object,
+            soc_index_file,
+            soc_structure_file,
+        )
         if from_empty:
+            logger.info("Dropping existing vector store content.")
             self.vector_store._client.delete_collection(  # pylint: disable=protected-access
                 "langchain"
             )
@@ -224,46 +234,45 @@ class EmbeddingHandler:
             for line in file_object:
                 if line:
                     bits = line.split(":", 1)
+                    code = bits[0].strip()
                     docs.append(
                         Document(
                             page_content=bits[1],
                             metadata={
-                                "code": bits[0],
+                                "code": code,
+                                "four_digit_code": code[:4],
+                                "two_digit_code": code[:2],
                             },
                         )
                     )
                     ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, line)))
 
         elif soc is None:
+            logger.info(
+                "Loading SOC index from files: %s, %s",
+                soc_index_file,
+                soc_structure_file,
+            )
             soc_index_df = load_soc_index(
                 soc_index_file or config["lookups"]["soc_index"]
             )
             logger.debug(
                 "Loaded %s entries from soc_index_df.", f"{len(soc_index_df):,}"
             )
-            # soc = load_hierarchy(soc_df, soc_index_df)
             for _, row in soc_index_df.iterrows():
+                code = str(row["code"]).strip()
+                doc_id = str(uuid.uuid3(uuid.NAMESPACE_URL, code + str(row["title"])))
                 docs.append(
                     Document(
                         page_content=row["title"],
-                        metadata={"code": row["code"]},
+                        metadata={
+                            "code": code,
+                            "four_digit_code": code[:4],
+                            "two_digit_code": code[:2],
+                        },
                     )
                 )
-                unique_id = str(uuid.uuid4())
-                ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, unique_id)))
-                # soc = load_hierarchy(soc_df, soc_index_df)
-                # logger.debug("Loading entries from SOC hierarchy for embedding.")
-                # for _, row in soc.all_leaf_text().iterrows():
-                #     code = (row["code"])
-                #     docs.append(
-                #         Document(
-                #             page_content=row["text"],
-                #             metadata = {
-                #                 "code": code
-                #             },
-                #         )
-                #     )
-                #     ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, row["text"])))
+                ids.append(doc_id)
 
         def split_into_batches(data, batch_size):
             for i in range(0, len(data), batch_size):
@@ -288,9 +297,7 @@ class EmbeddingHandler:
         embedding_config["soc_structure"] = (
             soc_structure_file or config["lookups"]["soc_structure"]
         )
-        embedding_config["soc_condensed"] = (
-            soc_index_file or config["lookups"]["soc_condensed"]
-        )
+        embedding_config["soc_condensed"] = config["lookups"]["soc_condensed"]
         embedding_config["matches"] = self.k_matches
         embedding_config["db_dir"] = self.db_dir
         embedding_config["embedding_model_name"] = self.embeddings.model_name
