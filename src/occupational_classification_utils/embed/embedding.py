@@ -191,6 +191,74 @@ class EmbeddingHandler:
             logger.exception("Failed to create vector store: %s", e)
             raise
 
+    def _docs_ids_from_file_object(
+        self, file_object: Any
+    ) -> tuple[list[Document], list[str]]:
+        """Build (docs, ids) from a line-oriented file object (code: description)."""
+        docs: list[Document] = []
+        ids: list[str] = []
+        for line in file_object:
+            if line:
+                bits = line.split(":", 1)
+                code = bits[0].strip()
+                docs.append(
+                    Document(
+                        page_content=bits[1],
+                        metadata={
+                            "code": code,
+                            "four_digit_code": code[:4],
+                            "two_digit_code": code[:2],
+                        },
+                    )
+                )
+                ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, line)))
+        return docs, ids
+
+    def _docs_ids_from_hierarchy(
+        self,
+        soc: Optional[SOC],
+        soc_index_file: Any,
+        soc_structure_file: Any,
+    ) -> tuple[list[Document], list[str], Any, Any]:
+        """Build (docs, ids) from SOC hierarchy; load from files if soc is None.
+
+        Returns effective index/structure paths for config.
+        """
+        if soc_index_file is None:
+            soc_index_file = config["lookups"]["soc_index"]
+        if soc_structure_file is None:
+            soc_structure_file = config["lookups"]["soc_structure"]
+        if soc is None:
+            logger.info(
+                "Loading SOC hierarchy from files: %s, %s",
+                soc_index_file,
+                soc_structure_file,
+            )
+            soc_index_df = load_soc_index(soc_index_file)
+            soc_df_input = load_soc_structure(soc_structure_file)
+            soc_df = SocDB.create_soc_dataframe(SocDB(soc_df_input).df)
+            soc = load_hierarchy(
+                soc_df,
+                soc_index_df,
+                structure_data_path=soc_structure_file,
+            )
+        docs: list[Document] = []
+        ids: list[str] = []
+        for _, row in soc.all_leaf_text().iterrows():  # type: ignore[union-attr]
+            code = str(row["code"]).strip()
+            docs.append(
+                Document(
+                    page_content=row["text"],
+                    metadata={
+                        "code": code,
+                        "four_digit_code": code[:4],
+                        "two_digit_code": code[:2],
+                    },
+                )
+            )
+            ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, row["text"])))
+        return docs, ids, soc_index_file, soc_structure_file
+
     def embed_index(  # pylint: disable=too-many-arguments, too-many-positional-arguments, too-many-locals
         self,
         from_empty: bool = True,
@@ -230,60 +298,16 @@ class EmbeddingHandler:
             )
             self.vector_store = self._create_vector_store()
 
-        docs: list[Document] = []
-        ids: list[str] = []
         if file_object is not None:
-            for line in file_object:
-                if line:
-                    bits = line.split(":", 1)
-                    code = bits[0].strip()
-                    docs.append(
-                        Document(
-                            page_content=bits[1],
-                            metadata={
-                                "code": code,
-                                "four_digit_code": code[:4],
-                                "two_digit_code": code[:2],
-                            },
-                        )
-                    )
-                    ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, line)))
-
+            docs, ids = self._docs_ids_from_file_object(file_object)
+            effective_index_file = soc_index_file or config["lookups"]["soc_index"]
+            effective_structure_file = (
+                soc_structure_file or config["lookups"]["soc_structure"]
+            )
         else:
-            if soc is None:
-                logger.info(
-                    "Loading SOC hierarchy from files: %s, %s",
-                    soc_index_file,
-                    soc_structure_file,
-                )
-
-                if soc_index_file is None:
-                    soc_index_file = config["lookups"]["soc_index"]
-                soc_index_df = load_soc_index(soc_index_file)
-
-                if soc_structure_file is None:
-                    soc_structure_file = config["lookups"]["soc_structure"]
-                soc_df_input = load_soc_structure(soc_structure_file)
-                soc_df = SocDB.create_soc_dataframe(SocDB(soc_df_input).df)
-                soc = load_hierarchy(
-                    soc_df,
-                    soc_index_df,
-                    structure_data_path=soc_structure_file,
-                )
-
-            for _, row in soc.all_leaf_text().iterrows():  # type: ignore[union-attr]
-                code = str(row["code"]).strip()
-                docs.append(
-                    Document(
-                        page_content=row["text"],
-                        metadata={
-                            "code": code,
-                            "four_digit_code": code[:4],
-                            "two_digit_code": code[:2],
-                        },
-                    )
-                )
-                ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, row["text"])))
+            docs, ids, effective_index_file, effective_structure_file = (
+                self._docs_ids_from_hierarchy(soc, soc_index_file, soc_structure_file)
+            )
 
         def split_into_batches(data, batch_size):
             for i in range(0, len(data), batch_size):
@@ -304,10 +328,8 @@ class EmbeddingHandler:
 
         # Update shared config
         embedding_config["index_size"] = self._index_size
-        embedding_config["soc_index"] = soc_index_file or config["lookups"]["soc_index"]
-        embedding_config["soc_structure"] = (
-            soc_structure_file or config["lookups"]["soc_structure"]
-        )
+        embedding_config["soc_index"] = effective_index_file
+        embedding_config["soc_structure"] = effective_structure_file
         embedding_config["soc_condensed"] = config["lookups"]["soc_condensed"]
         embedding_config["matches"] = self.k_matches
         embedding_config["db_dir"] = self.db_dir
