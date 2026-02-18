@@ -1,3 +1,4 @@
+# pylint: disable=logging-not-lazy,logging-fstring-interpolation,too-many-lines
 """This module provides utilities for leveraging Large Language Models (LLMs)
 to classify respondent data into Standard Occupational Classification (SOC) codes.
 
@@ -21,9 +22,8 @@ from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
-from langchain.chains.llm import LLMChain
-from langchain.docstore.document import Document
 from langchain.output_parsers import PydanticOutputParser
+from langchain_core.documents import Document
 from langchain_google_vertexai import ChatVertexAI
 from langchain_openai import ChatOpenAI
 from occupational_classification.data_access.soc_data_access import (
@@ -32,11 +32,9 @@ from occupational_classification.data_access.soc_data_access import (
 )
 from occupational_classification.hierarchy.soc_hierarchy import load_hierarchy
 from occupational_classification.meta.soc_meta import SocDB, SocMeta
+from pydantic import SecretStr
 
-from occupational_classification_utils.embed.embedding import (
-    EmbeddingHandler,
-    get_config,
-)
+from occupational_classification_utils.embed.embedding import get_config
 from occupational_classification_utils.llm.prompt import (
     FIX_PARSING_PROMPT,
     SA_SOC_PROMPT_RAG,
@@ -61,23 +59,20 @@ class ClassificationLLM:
         model_name (str): Name of the model. Defaults to the value in the `config` file.
             Used if no LLM object is passed.
         llm (LLM): LLM to use. Optional.
-        embedding_handler (EmbeddingHandler): Embedding handler. Optional.
-            If None a default embedding handler is retrieved based on config file.
         max_tokens (int): Maximum number of tokens to generate. Defaults to 1600.
         temperature (float): Temperature of the LLM model. Defaults to 0.0.
         verbose (bool): Whether to print verbose output. Defaults to False.
-        openai_api_key (str): OpenAI API key. Optional, but needed for OpenAI models.
+        openai_api_key (SecretStr): OpenAI API key. Optional, but needed for OpenAI models.
     """
 
     def __init__(  # noqa: PLR0913
         self,
         model_name: str = config["llm"]["llm_model_name"],
         llm: Optional[Union[ChatVertexAI, ChatOpenAI]] = None,
-        embedding_handler: Optional[EmbeddingHandler] = None,
         max_tokens: int = 1600,
         temperature: float = 0.0,
         verbose: bool = True,
-        openai_api_key: Optional[str] = None,
+        openai_api_key: Optional[SecretStr] = None,
     ):
         """Initialises the ClassificationLLM object."""
         if llm is not None:
@@ -96,7 +91,7 @@ class ClassificationLLM:
                 raise NotImplementedError("Need to provide an OpenAI API key")
             self.llm = ChatOpenAI(
                 model=model_name,
-                api_key=openai_api_key,  # type: ignore[arg-type]
+                api_key=openai_api_key,
                 temperature=temperature,
                 model_kwargs={"max_tokens": max_tokens},
             )
@@ -107,31 +102,11 @@ class ClassificationLLM:
         self.soc_prompt = SOC_PROMPT_PYDANTIC
         self.soc_meta = SocMeta(soc_df_input).soc_meta
         self.sa_soc_prompt_rag = SA_SOC_PROMPT_RAG
-        self.embed = embedding_handler
         self.soc: Optional[pd.DataFrame] = None
         self.verbose = verbose
 
-    def _load_embedding_handler(self):
-        """Loads the default embedding handler according to the 'config' file.
-        Expects an existing and populated persistent vector store.
-
-        Raises:
-            ValueError: If the retrieved embedding handler has an empty vector store.
-                Please embed an index before using it in the ClassificationLLM.
-        """
-        logger.info(
-            """Loading default embedding handler according to 'config' file.
-            Expecting existing & populated persistent vector store."""
-        )
-        self.embed = EmbeddingHandler()
-        if self.embed._index_size == 0:  # pylint: disable=protected-access
-            raise ValueError(
-                """The retrieved embedding handler has an empty vector store.
-                Please embed an index before using in the ClassificationLLM."""
-            )
-
     @lru_cache  # noqa: B019
-    def get_soc_code(
+    async def get_soc_code(
         self,
         job_title: str,
         job_description: str,
@@ -156,8 +131,8 @@ class ClassificationLLM:
             ValueError: If there is an error parsing the response from the LLM model.
 
         """
-        chain = LLMChain(llm=self.llm, prompt=self.soc_prompt)
-        response = chain.invoke(
+        chain = self.soc_prompt | self.llm
+        response = await chain.ainvoke(
             {
                 "job_title": job_title,
                 "job_description": job_description,
@@ -168,15 +143,15 @@ class ClassificationLLM:
             return_only_outputs=True,
         )
         if self.verbose:
-            logger.debug("LLM response: %s", response)
+            logger.debug(f"LLM response: {response}")
         # Parse the output to desired format with one retry
-        parser = PydanticOutputParser(pydantic_object=SocResponse)  # type: ignore
+        parser = PydanticOutputParser(pydantic_object=SocResponse)  # type: ignore # Suspect langchain ver bug
         try:
-            validated_answer_sr = parser.parse(response["text"])
+            validated_answer_sr = parser.parse(str(response.content))
         except ValueError as parse_error:
-            logger.error("Unable to parse llm response: %s", parse_error)
+            logger.error(f"Unable to parse llm response: {parse_error}")
             reasoning = (
-                f'ERROR parse_error=<{parse_error}>, response=<{response["text"]}>'
+                f"ERROR parse_error=<{parse_error}>, response=<{getattr(response, 'content', '')}>"
             )
             validated_answer_sr = SocResponse(
                 codable=False, soc_candidates=[], reasoning=reasoning
@@ -188,7 +163,7 @@ class ClassificationLLM:
         self,
         code: str,
         job_titles: list[str],
-        include_all: bool = False,  # pylint: disable=unused-argument
+        include_all: bool = False,
     ) -> str:
         """Reformat the candidate activities for the prompt.
 
@@ -217,6 +192,8 @@ class ClassificationLLM:
         #         txt += f", Description: {item.soc_meta.group_description}"
         #     if item.soc_meta.qualifications:
         #         txt += f", Qualifications: {', '.join(item.soc_meta.entry_routes_and_quals)}"
+        if include_all:
+            pass  # Full metadata optional; structure matches SIC _prompt_candidate
         return txt + "}"
 
     def _prompt_candidate_list(
@@ -251,12 +228,9 @@ class ClassificationLLM:
         a: defaultdict[Any, list] = defaultdict(list)
 
         logger.debug(
-            "Chars Lmt: %d Candidate Lmt: %d Titles Lmt: %d Short List Len: %d Code Digits: %d",
-            chars_limit,
-            candidates_limit,
-            titles_limit,
-            len(short_list),
-            code_digits,
+            f"Chars Lmt: {chars_limit} Candidate Lmt: {candidates_limit} "
+            f"Titles Lmt: {titles_limit} Short List Len: {len(short_list)} "
+            f"Code Digits: {code_digits}"
         )
 
         for item in short_list:
@@ -276,15 +250,13 @@ class ClassificationLLM:
             nn = sum(x <= chars_limit for x in chars_count)
             if nn < len(soc_candidates):
                 logger.warning(
-                    "Shortening list of candidates to fit token limit from %d to %d",
-                    len(soc_candidates),
-                    nn,
+                    f"Shortening list of candidates to fit token limit from "
+                    f"{len(soc_candidates)} to {nn}"
                 )
                 soc_candidates = soc_candidates[:nn]
 
         return "\n".join(soc_candidates)
 
-    # pylint: disable=too-many-branches,too-many-statements
     async def sa_rag_soc_code(  # noqa: PLR0913
         self,
         industry_descr: str,
@@ -365,15 +337,14 @@ class ClassificationLLM:
 
         if self.verbose:
             final_prompt = self.sa_soc_prompt_rag.format(**call_dict)
-            logger.debug(final_prompt)
+            logger.debug(f"Final prompt: {final_prompt}")
 
         chain = self.sa_soc_prompt_rag | self.llm
 
         try:
             response = await chain.ainvoke(call_dict, return_only_outputs=True)
         except ValueError as err:
-            logger.exception(err)
-            logger.warning("Error from chain, exit early")
+            logger.error(f"Error from chain, exit early: {err}", error=str(err))
             validated_answer = SocResponse(
                 codable=False,
                 followup="Follow-up question not available due to error.",
@@ -383,16 +354,17 @@ class ClassificationLLM:
             return validated_answer, short_list, call_dict
 
         if self.verbose:
-            logger.debug("LLM response: %s", response)
+            logger.debug(f"LLM response: {response}")
 
-        parser = PydanticOutputParser(pydantic_object=SocResponse)  # type: ignore
+        parser = PydanticOutputParser(pydantic_object=SocResponse)  # type: ignore # Suspect langchain ver bug
         try:
             validated_answer = parser.parse(str(response.content))
         except (ValueError, AttributeError) as parse_error:
-            logger.error("Failed to parse response: %s", parse_error)
+            logger.error(
+                f"Failed to parse response: {parse_error}", error=str(parse_error)
+            )
             logger.warning(
-                "Failed to parse response; response_content=%s",
-                str(getattr(response, "content", "")),
+                "Failed to parse response", response_content=str(response.content)
             )
 
             try:
@@ -407,10 +379,13 @@ class ClassificationLLM:
                 validated_answer = parser.parse(str(response.content))
                 logger.debug("Successfully parsed reformatted response.")
             except (ValueError, AttributeError) as parse_error2:
-                logger.error("Failed to parse response again: %s", parse_error2)
+                logger.error(
+                    f"Failed to parse response again: {parse_error2}",
+                    error=str(parse_error2),
+                )
                 logger.warning(
-                    "Failed to parse response again; response_content=%s",
-                    str(getattr(response, "content", "")),
+                    "Failed to parse response again",
+                    response_content=str(response.content),
                 )
                 reasoning = (
                     f"ERROR parse_error=<{parse_error2}>, response=<{response.content}>"
