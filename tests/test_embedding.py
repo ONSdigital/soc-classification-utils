@@ -75,8 +75,8 @@ def test_search_index_multi(embedding_handler):
 @pytest.mark.parametrize(
     "model_name, expected_class",
     [
-        ("textembedding-004", "VertexAIEmbeddings"),
-        ("text-embedding-004", "VertexAIEmbeddings"),
+        ("textembedding-004", "CustomVertexAIEmbeddings"),
+        ("text-embedding-004", "CustomVertexAIEmbeddings"),
         ("all-MiniLM-L6-v2", "HuggingFaceEmbeddings"),
     ],
 )
@@ -89,7 +89,7 @@ def test_embedding_handler_initialisation(model_name, expected_class):
         expected_class (str): name of embedding.
     """
     with patch(
-        "occupational_classification_utils.embed.embedding.VertexAIEmbeddings"
+        "occupational_classification_utils.embed.embedding.CustomVertexAIEmbeddings"
     ) as mock_vertex, patch(
         "occupational_classification_utils.embed.embedding.HuggingFaceEmbeddings"
     ) as mock_hf:
