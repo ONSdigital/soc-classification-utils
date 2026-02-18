@@ -115,7 +115,7 @@ class ClassificationLLM:
         industry_descr: str,
     ) -> SocResponse:
         """Generates a SOC classification based on respondent's data
-        using a whole condensed index embedded in the query.
+        using the full SOC index embedded in the query (mirror SIC one-shot).
 
         Args:
             job_title (str): The title of the job.

@@ -269,10 +269,10 @@ class EmbeddingHandler:
             file_object (StringIO object, optional): The index file as a StringIO object.
                 If provided, the file will be read line by line and embedded.
                 Each line should have the format **code**: **description**.
-            soc_index_file (optional): Custom path or file-like object to override
-                default SOC index source.
-            soc_structure_file (optional): Custom path or file-like object to override
-                default SOC structure source.
+            soc_index_file (optional): Config-style tuple (package, path) to override
+                default SOC index source. Must be tuple for data-access parity with SIC.
+            soc_structure_file (optional): Config-style tuple (package, path) to override
+                default SOC structure source. Must be tuple for data-access parity with SIC.
         """
         logger.info(
             "Embedding index: from_empty=%s, soc=%s, file_object=%s, "
