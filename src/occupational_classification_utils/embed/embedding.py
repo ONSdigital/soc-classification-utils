@@ -59,7 +59,8 @@ def get_config() -> FullConfig:
             ),
             "soc_structure": (
                 "occupational_classification_utils",
-                "data/soc_index/soc2020volume1structureanddescriptionofunitgroupsexcel16102024.xlsx",
+                "data/soc_index/"
+                "soc2020volume1structureanddescriptionofunitgroupsexcel16102024.xlsx",
             ),
             "soc_condensed": (
                 "occupational_classification_utils",
