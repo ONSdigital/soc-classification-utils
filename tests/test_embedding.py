@@ -99,5 +99,5 @@ def test_embedding_handler_initialisation(model_name, expected_class):
             mock_hf.assert_called_once_with(model_name=model_name)
             mock_vertex.assert_not_called()
         else:
-            mock_vertex.assert_called_once_with(model_name=model_name)
+            mock_vertex.assert_called_once_with(model=model_name)
             mock_hf.assert_not_called()
