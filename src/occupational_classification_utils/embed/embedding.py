@@ -8,7 +8,6 @@ and performing similarity searches.
 import logging
 import os
 import uuid
-from pathlib import Path
 from typing import Any, Optional, Union
 
 from autocorrect import Speller
@@ -16,13 +15,14 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_google_vertexai import VertexAIEmbeddings
 from langchain_huggingface import HuggingFaceEmbeddings
-from occupational_classification.data_access.soc_data_access import (
-    load_soc_index,
-    load_soc_structure,
-)
-from occupational_classification.hierarchy.soc_hierarchy import SOC, load_hierarchy
-from occupational_classification.meta.soc_meta import SocDB
+from occupational_classification.hierarchy.soc_hierarchy import SOC
 
+from occupational_classification_utils.models.config_model import FullConfig
+from occupational_classification_utils.utils.soc_data_access import (
+    load_soc_hierarchy,
+)
+
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -39,31 +39,31 @@ embedding_config = {
 }
 
 
-def get_config() -> dict[str, dict[str, str]]:
+def get_config() -> FullConfig:
     """Returns the configuration dictionary for the LLM.
 
     Returns:
         dict: A dictionary containing configuration details for the embedding model
         and lookup file paths.
     """
-    folder_dir = Path(__file__).parent
     return {
         "llm": {
             "llm_model_name": "gemini-1.0-pro",
-            "embedding_model_name": "all-MiniLM-L6-v2",
-            "db_dir": str(folder_dir.parent) + "/data/vector_store",
+            "embedding_model_name": "all-MiniLM-L6-v2",  # text-embedding-004
+            "db_dir": "src/occupational_classification_utils/data/vector_store",
         },
         "lookups": {
             "soc_index": (
-                str(folder_dir.parent) + "/data/soc_index/"
-                "soc2020volume2thecodingindexexcel16102024.xlsx"
+                "occupational_classification_utils",
+                "data/soc_index/soc2020volume2thecodingindexexcel16102024.xlsx",
             ),
             "soc_structure": (
-                str(folder_dir.parent) + "/data/soc_index/"
-                "soc2020volume1structureanddescriptionofunitgroupsexcel16102024.xlsx"
+                "occupational_classification_utils",
+                "data/soc_index/soc2020volume1structureanddescriptionofunitgroupsexcel16102024.xlsx",
             ),
             "soc_condensed": (
-                str(folder_dir.parent) + "/data/example/" "soc_4d_condensed.txt"
+                "occupational_classification_utils",
+                "data/example/soc_4d_condensed.txt",
             ),
         },
     }
@@ -200,14 +200,13 @@ class EmbeddingHandler:
         for line in file_object:
             if line:
                 bits = line.split(":", 1)
-                code = bits[0].strip()
                 docs.append(
                     Document(
                         page_content=bits[1],
                         metadata={
-                            "code": code,
-                            "four_digit_code": code[:4],
-                            "two_digit_code": code[:2],
+                            "code": bits[0],
+                            "four_digit_code": bits[0][0:4],
+                            "two_digit_code": bits[0][0:2],
                         },
                     )
                 )
@@ -234,14 +233,7 @@ class EmbeddingHandler:
                 soc_index_file,
                 soc_structure_file,
             )
-            soc_index_df = load_soc_index(soc_index_file)
-            soc_df_input = load_soc_structure(soc_structure_file)
-            soc_df = SocDB.create_soc_dataframe(SocDB(soc_df_input).df)
-            soc = load_hierarchy(
-                soc_df,
-                soc_index_df,
-                structure_data_path=soc_structure_file,
-            )
+            soc = load_soc_hierarchy(soc_index_file, soc_structure_file)
         docs: list[Document] = []
         ids: list[str] = []
         for _, row in soc.all_leaf_text().iterrows():  # type: ignore[union-attr]
