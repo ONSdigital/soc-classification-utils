@@ -18,8 +18,10 @@ from langchain_google_vertexai import VertexAIEmbeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 from occupational_classification.data_access.soc_data_access import (
     load_soc_index,
+    load_soc_structure,
 )
-from occupational_classification.hierarchy.soc_hierarchy import SOC
+from occupational_classification.hierarchy.soc_hierarchy import SOC, load_hierarchy
+from occupational_classification.meta.soc_meta import SocDB
 
 logger = logging.getLogger(__name__)
 
@@ -228,8 +230,8 @@ class EmbeddingHandler:
             )
             self.vector_store = self._create_vector_store()
 
-        docs = []
-        ids = []
+        docs: list[Document] = []
+        ids: list[str] = []
         if file_object is not None:
             for line in file_object:
                 if line:
@@ -247,24 +249,33 @@ class EmbeddingHandler:
                     )
                     ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, line)))
 
-        elif soc is None:
-            logger.info(
-                "Loading SOC index from files: %s, %s",
-                soc_index_file,
-                soc_structure_file,
-            )
-            soc_index_df = load_soc_index(
-                soc_index_file or config["lookups"]["soc_index"]
-            )
-            logger.debug(
-                "Loaded %s entries from soc_index_df.", f"{len(soc_index_df):,}"
-            )
-            for _, row in soc_index_df.iterrows():
+        else:
+            if soc is None:
+                logger.info(
+                    "Loading SOC hierarchy from files: %s, %s",
+                    soc_index_file,
+                    soc_structure_file,
+                )
+
+                if soc_index_file is None:
+                    soc_index_file = config["lookups"]["soc_index"]
+                soc_index_df = load_soc_index(soc_index_file)
+
+                if soc_structure_file is None:
+                    soc_structure_file = config["lookups"]["soc_structure"]
+                soc_df_input = load_soc_structure(soc_structure_file)
+                soc_df = SocDB.create_soc_dataframe(SocDB(soc_df_input).df)
+                soc = load_hierarchy(
+                    soc_df,
+                    soc_index_df,
+                    structure_data_path=soc_structure_file,
+                )
+
+            for _, row in soc.all_leaf_text().iterrows():  # type: ignore[union-attr]
                 code = str(row["code"]).strip()
-                doc_id = str(uuid.uuid3(uuid.NAMESPACE_URL, code + str(row["title"])))
                 docs.append(
                     Document(
-                        page_content=row["title"],
+                        page_content=row["text"],
                         metadata={
                             "code": code,
                             "four_digit_code": code[:4],
@@ -272,7 +283,7 @@ class EmbeddingHandler:
                         },
                     )
                 )
-                ids.append(doc_id)
+                ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, row["text"])))
 
         def split_into_batches(data, batch_size):
             for i in range(0, len(data), batch_size):
