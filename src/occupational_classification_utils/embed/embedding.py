@@ -12,8 +12,9 @@ from typing import Any, Optional, Union
 
 from autocorrect import Speller
 from langchain_chroma import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings, VertexAIEmbeddings
 from langchain_core.documents import Document
+from langchain_google_vertexai import VertexAIEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from occupational_classification.data_access.soc_data_access import (
     load_soc_index,
 )
@@ -97,10 +98,8 @@ class EmbeddingHandler:
                 Defaults to 20.
         """
         self.embeddings: Any  # Use Any if no common base type exists
-        if embedding_model_name.startswith(
-            "textembedding-"
-        ) or embedding_model_name.startswith("text-embedding-"):
-            self.embeddings = VertexAIEmbeddings(model_name=embedding_model_name)
+        if embedding_model_name.startswith(("textembedding-", "text-embedding-")):
+            self.embeddings = VertexAIEmbeddings(model=embedding_model_name)
         else:
             self.embeddings = HuggingFaceEmbeddings(model_name=embedding_model_name)
         self.db_dir = db_dir
@@ -133,7 +132,7 @@ class EmbeddingHandler:
             embedding_function=self.embeddings, persist_directory=self.db_dir
         )
 
-    def embed_index(  # pylint: disable=too-many-arguments, too-many-positional-arguments
+    def embed_index(  # pylint: disable=too-many-arguments, too-many-positional-arguments, too-many-locals
         self,
         from_empty: bool = True,
         soc: Optional[SOC] = None,
