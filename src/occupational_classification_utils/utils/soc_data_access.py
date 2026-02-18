@@ -12,9 +12,10 @@ import logging
 from importlib.resources import as_file, files
 
 import pandas as pd
-
 from occupational_classification.data_access.soc_data_access import (
     load_soc_index as _lib_load_soc_index,
+)
+from occupational_classification.data_access.soc_data_access import (
     load_soc_structure as _lib_load_soc_structure,
 )
 from occupational_classification.hierarchy.soc_hierarchy import SOC, load_hierarchy
@@ -39,9 +40,7 @@ def load_soc_index(resource_ref: _ResourceRef) -> pd.DataFrame:
     Returns:
         DataFrame containing the SOC index.
     """
-    with as_file(
-        files(resource_ref[0]).joinpath(resource_ref[1])
-    ) as path:
+    with as_file(files(resource_ref[0]).joinpath(resource_ref[1])) as path:
         return _lib_load_soc_index(str(path))
 
 
@@ -57,9 +56,7 @@ def load_soc_structure(resource_ref: _ResourceRef) -> pd.DataFrame:
     Returns:
         DataFrame containing the SOC structure.
     """
-    with as_file(
-        files(resource_ref[0]).joinpath(resource_ref[1])
-    ) as path:
+    with as_file(files(resource_ref[0]).joinpath(resource_ref[1])) as path:
         return _lib_load_soc_structure(str(path))
 
 
@@ -76,9 +73,7 @@ def load_soc_hierarchy(index_ref: _ResourceRef, structure_ref: _ResourceRef) -> 
     Returns:
         The loaded SOC hierarchy object.
     """
-    with as_file(
-        files(index_ref[0]).joinpath(index_ref[1])
-    ) as path1, as_file(
+    with as_file(files(index_ref[0]).joinpath(index_ref[1])) as path1, as_file(
         files(structure_ref[0]).joinpath(structure_ref[1])
     ) as path2:
         soc_index_df = _lib_load_soc_index(str(path1))
@@ -103,9 +98,7 @@ def get_soc_meta(structure_ref: _ResourceRef):
     Returns:
         The soc_meta object from SocMeta(structure_path).soc_meta.
     """
-    with as_file(
-        files(structure_ref[0]).joinpath(structure_ref[1])
-    ) as path:
+    with as_file(files(structure_ref[0]).joinpath(structure_ref[1])) as path:
         return SocMeta(str(path)).soc_meta
 
 
