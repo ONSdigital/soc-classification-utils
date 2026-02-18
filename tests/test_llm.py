@@ -9,13 +9,12 @@ import vertexai
 from langchain_core.messages import AIMessage
 from langchain_google_vertexai import ChatVertexAI
 from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
 
 from occupational_classification_utils.llm.llm import ClassificationLLM
 from occupational_classification_utils.models.response_model import SocResponse
 
 MODEL_NAME = "gemini-2.5-flash"
-LOCATION = "europe-west1"
+LOCATION = "europe-west2"
 
 
 # Mock LLM connections
@@ -80,10 +79,8 @@ def mock_vertex_ai():
 )
 @pytest.mark.llm
 def test_llm_model(model, openai_api_key, expected_model):
-    key = SecretStr(openai_api_key) if openai_api_key else None
     llm_model_type = ClassificationLLM(
-        model_name=model,
-        openai_api_key=key,
+        model_name=model, openai_api_key=openai_api_key
     ).llm
     assert isinstance(llm_model_type, expected_model)
 
