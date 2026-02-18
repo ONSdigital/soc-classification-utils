@@ -32,6 +32,7 @@ from occupational_classification.data_access.soc_data_access import (
 from occupational_classification.hierarchy.soc_hierarchy import load_hierarchy
 from occupational_classification.meta.soc_meta import SocDB, SocMeta
 from pydantic import SecretStr
+from survey_assist_utils.logging import get_logger
 
 from occupational_classification_utils.embed.embedding import get_config
 from occupational_classification_utils.llm.prompt import (
@@ -40,7 +41,6 @@ from occupational_classification_utils.llm.prompt import (
     SOC_PROMPT_PYDANTIC,
 )
 from occupational_classification_utils.models.response_model import SocResponse
-from survey_assist_utils.logging import get_logger
 
 logger = get_logger(__name__)
 config = get_config()
@@ -81,12 +81,12 @@ class ClassificationLLM:
         if llm is not None:
             self.llm = llm
         elif model_name.startswith("text-") or model_name.startswith("gemini"):
-            # Mirror SIC: ChatVertexAI, europe-west1, thinking_budget=0
+            # Mirror SIC: ChatVertexAI, europe-west2, thinking_budget=0
             self.llm = ChatVertexAI(
                 model_name=model_name,
                 max_output_tokens=max_tokens,
                 temperature=temperature,
-                location="europe-west1",
+                location="europe-west2",
                 model_kwargs={"thinking_budget": 0},  # Reduce latency
             )
         elif model_name.startswith("gpt"):
@@ -148,14 +148,15 @@ class ClassificationLLM:
         if self.verbose:
             logger.debug(f"LLM response: {response}")
         # Parse the output to desired format with one retry
-        parser = PydanticOutputParser(pydantic_object=SocResponse)  # type: ignore # Suspect langchain ver bug
+        parser = PydanticOutputParser(  # type: ignore # Suspect langchain ver bug
+            pydantic_object=SocResponse,
+        )
         try:
             validated_answer_sr = parser.parse(str(response.content))
         except ValueError as parse_error:
             logger.error(f"Unable to parse llm response: {parse_error}")
-            reasoning = (
-                f"ERROR parse_error=<{parse_error}>, response=<{getattr(response, 'content', '')}>"
-            )
+            content = getattr(response, "content", "")
+            reasoning = f"ERROR parse_error=<{parse_error}>, response=<{content}>"
             validated_answer_sr = SocResponse(
                 codable=False, soc_candidates=[], reasoning=reasoning
             )
@@ -359,7 +360,9 @@ class ClassificationLLM:
         if self.verbose:
             logger.debug(f"LLM response: {response}")
 
-        parser = PydanticOutputParser(pydantic_object=SocResponse)  # type: ignore # Suspect langchain ver bug
+        parser = PydanticOutputParser(  # type: ignore # Suspect langchain ver bug
+            pydantic_object=SocResponse,
+        )
         try:
             validated_answer = parser.parse(str(response.content))
         except (ValueError, AttributeError) as parse_error:
