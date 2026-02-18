@@ -30,7 +30,7 @@ from occupational_classification_utils.models.response_model import (
     RagResponse,
     SocResponse,
 )
-from occupational_classification_utils.utils.common_utils import (
+from occupational_classification_utils.utils.soc_data_access import (
     load_text_from_config,
 )
 
@@ -61,7 +61,7 @@ needed to determine it. Make sure to use the provided 2020 SOC index.
 {soc_index}
 """
 
-# Load the SOC index from the configuration and convert to file path string
+# Load the SOC index from the configuration (data-access layer accepts tuple)
 soc_index = load_text_from_config(config["lookups"]["soc_condensed"])
 
 parser = PydanticOutputParser(  # type: ignore # Suspect langchain ver bug
