@@ -9,6 +9,7 @@ import vertexai
 from langchain_core.messages import AIMessage
 from langchain_google_vertexai import ChatVertexAI
 from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
 
 from occupational_classification_utils.llm.llm import ClassificationLLM
 from occupational_classification_utils.models.response_model import SocResponse
@@ -50,7 +51,7 @@ async def classification_llm_with_soc_sa_rag_soc():
         "occupational_classification_utils.llm.llm.ChatVertexAI.ainvoke",
         return_value=mock_message,
     ):
-        llm_class = ClassificationLLM(model_name=MODEL_NAME, embedding_handler=None)
+        llm_class = ClassificationLLM(model_name=MODEL_NAME)
         yield llm_class
 
 
@@ -79,30 +80,28 @@ def mock_vertex_ai():
 )
 @pytest.mark.llm
 def test_llm_model(model, openai_api_key, expected_model):
+    key = SecretStr(openai_api_key) if openai_api_key else None
     llm_model_type = ClassificationLLM(
         model_name=model,
-        openai_api_key=openai_api_key,
-        embedding_handler=None,
+        openai_api_key=key,
     ).llm
     assert isinstance(llm_model_type, expected_model)
 
 
 @pytest.mark.llm
 def test_pass_llm_argument():
-    llm_model = ClassificationLLM(llm="model", embedding_handler=None).llm
+    llm_model = ClassificationLLM(llm="model").llm
     assert llm_model == "model"
 
 
 @pytest.mark.llm
 def test_llm_model_default():
-    assert isinstance(ClassificationLLM(embedding_handler=None).llm, ChatVertexAI)
+    assert isinstance(ClassificationLLM().llm, ChatVertexAI)
 
 
 @pytest.mark.llm
 def test_model_name():
-    assert (
-        ClassificationLLM(embedding_handler=None).llm.model_name == "gemini-1.5-flash"
-    )
+    assert ClassificationLLM().llm.model_name == "gemini-1.5-flash"
 
 
 @pytest.mark.llm
@@ -145,7 +144,7 @@ def test_open_api_key_raise_not_implemented_error():
         NotImplementedError,
         match="Need to provide an OpenAI API key",
     ):
-        ClassificationLLM(model_name="gpt", embedding_handler=None)
+        ClassificationLLM(model_name="gpt")
 
 
 @pytest.mark.llm
@@ -154,4 +153,4 @@ def test_model_family_raise_not_implemented_error():
         NotImplementedError,
         match="Unsupported model family",
     ):
-        ClassificationLLM(model_name="aaaa", embedding_handler=None)
+        ClassificationLLM(model_name="aaaa")
