@@ -40,19 +40,14 @@ _core_prompt = """You are a conscientious classification assistant of respondent
 for the use in the UK official statistics. Respondent data may be in English or Welsh,
 but you always respond in British English."""
 
-_soc_template = """"Given the respondent data (that may include all or some of
-job title, job description, level of education, line management responsibilities,
-and company's main activity) your task is to determine
-the UK SOC (Standard Occupational Classification) code for this job if it can be
-determined. If the code cannot be determined, identify the additional information
+_soc_template = """"Given the respondent job title your task is to determine
+the UK SOC (Standard Occupational Classification) code for this job.
+If the code cannot be determined, identify the additional information
 needed to determine it. Make sure to use the provided 2020 SOC index.
 
 ===Respondent Data===
 - Job Title: {job_title}
-- Job Description: {job_description}
-- Level of Education: {level_of_education}
-- Line Management Responsibilities: {manage_others}
-- Company's main activity: {industry_descr}
+
 
 ===Output Format===
 {format_instructions}
@@ -77,10 +72,8 @@ SOC_PROMPT_PYDANTIC = PromptTemplate.from_template(
 )
 
 
-_sa_soc_template_rag = """"Given the respondent's description of the main activity their
-company does, their job title and job description (which may be different to the
-main company activity), your task is to determine a list of the most likely UK SOC
-(Standard Occupational Classification) codes for this individual.
+_sa_soc_template_rag = """"Given the respondent's job title, your task is to determine
+a list of the most likely UK SOC (Standard Occupational Classification) codes for this individual.
 
 The following will be provided to make your decision and send appropriate output:
 Respondent Data
@@ -98,9 +91,7 @@ You must provide a follow up question that would help identify the exact coding 
 on the list you respond with.
 
 ===Respondent Data===
-- Company's main activity: {industry_descr}
 - Job Title: {job_title}
-- Job Description: {job_description}
 
 ===Relevant subset of UK SOC 2020===
 {soc_index}

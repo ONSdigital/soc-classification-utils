@@ -109,20 +109,12 @@ class ClassificationLLM:
     async def get_soc_code(
         self,
         job_title: str,
-        job_description: str,
-        level_of_education: str,
-        manage_others: bool,
-        industry_descr: str,
     ) -> SocResponse:
         """Generates a SOC classification based on respondent's data
         using the full SOC index embedded in the query (mirror SIC one-shot).
 
         Args:
             job_title (str): The title of the job.
-            job_description (str): The description of the job.
-            level_of_education (str): The level of education required for the job.
-            manage_others (bool): Indicates whether the job involves managing others.
-            industry_descr (str): The description of the industry.
 
         Returns:
             SocResponse: The generated response to the query.
@@ -135,10 +127,6 @@ class ClassificationLLM:
         response = await chain.ainvoke(
             {
                 "job_title": job_title,
-                "job_description": job_description,
-                "level_of_education": level_of_education,
-                "manage_others": manage_others,
-                "industry_descr": industry_descr,
             },
             return_only_outputs=True,
         )
@@ -148,12 +136,30 @@ class ClassificationLLM:
         parser = PydanticOutputParser(  # type: ignore # Suspect langchain ver bug
             pydantic_object=SocResponse,
         )
+
         try:
+            chain = FIX_PARSING_PROMPT | self.llm
+            response = await chain.ainvoke(
+                {
+                    "llm_output": str(response.content),
+                    "format_instructions": parser.get_format_instructions(),
+                },
+                return_only_outputs=True,
+            )
             validated_answer_sr = parser.parse(str(response.content))
-        except ValueError as parse_error:
-            logger.error(f"Unable to parse llm response: {parse_error}")
-            content = getattr(response, "content", "")
-            reasoning = f"ERROR parse_error=<{parse_error}>, response=<{content}>"
+            logger.debug("Successfully parsed reformatted response.")
+        except (ValueError, AttributeError) as parse_error2:
+            logger.error(
+                f"Failed to parse response again: {parse_error2}",
+                error=str(parse_error2),
+            )
+            logger.warning(
+                "Failed to parse response again",
+                response_content=str(response.content),
+            )
+            reasoning = (
+                f"ERROR parse_error=<{parse_error2}>, response=<{response.content}>"
+            )
             validated_answer_sr = SocResponse(
                 codable=False, soc_candidates=[], reasoning=reasoning
             )
@@ -185,11 +191,7 @@ class ClassificationLLM:
         item = self.soc[code]
         txt = "{" + f"Code: {item.soc_code}, Title: {item.group_title}"
         txt += f", Example job_titles: {', '.join(job_titles)}"
-        # if include_all:
-        #     if item.soc_meta.group_description:
-        #         txt += f", Description: {item.soc_meta.group_description}"
-        #     if item.soc_meta.qualifications:
-        #         txt += f", Qualifications: {', '.join(item.soc_meta.entry_routes_and_quals)}"
+
         if include_all:
             pass  # Full metadata optional; structure matches SIC _prompt_candidate
         return txt + "}"
@@ -257,9 +259,7 @@ class ClassificationLLM:
 
     async def sa_rag_soc_code(  # noqa: PLR0913
         self,
-        industry_descr: str,
         job_title: Optional[str] = None,
-        job_description: Optional[str] = None,
         expand_search_terms: bool = True,
         code_digits: int = 4,
         candidates_limit: int = 5,
@@ -274,7 +274,6 @@ class ClassificationLLM:
         Args:
             industry_descr (str): The description of the industry.
             job_title (str, optional): The job title. Defaults to None.
-            job_description (str, optional): The job description. Defaults to None.
             expand_search_terms (bool, optional): Kept for API compatibility;
                 unused (short_list is required from caller). Defaults to True.
             code_digits (int, optional): The number of digits in the generated
@@ -296,23 +295,13 @@ class ClassificationLLM:
         """
         _ = expand_search_terms  # API compatibility; unused when short_list required
 
-        def prep_call_dict(industry_descr, job_title, job_description, soc_codes):
+        def prep_call_dict(job_title, soc_codes):
             # Helper function to prepare the call dictionary
             is_job_title_present = job_title is None or job_title in {"", " "}
             job_title = "Unknown" if is_job_title_present else job_title
 
-            is_job_description_present = job_description is None or job_description in {
-                "",
-                " ",
-            }
-            job_description = (
-                "Unknown" if is_job_description_present else job_description
-            )
-
             call_dict = {
-                "industry_descr": industry_descr,
                 "job_title": job_title,
-                "job_description": job_description,
                 "soc_index": soc_codes,
             }
             return call_dict
@@ -327,9 +316,7 @@ class ClassificationLLM:
         )
 
         call_dict = prep_call_dict(
-            industry_descr=industry_descr,
             job_title=job_title,
-            job_description=job_description,
             soc_codes=soc_codes,
         )
 

@@ -80,26 +80,12 @@ class SocResponse(BaseModel):
         default=None,
     )
     soc_code: Optional[str] = Field(
-        description="""Full four digit SOC code assigned based on provided job title,
-        description, etc. Empty if codable=False.""",
-        default=None,
-    )
-    soc_descriptive: Optional[str] = Field(
-        description="""Descriptive label of the SOC category associated with soc_code
-        if provided. Empty if codable=False.""",
+        description="""Full four digit SOC code assigned based on provided job title. Empty if codable=False.""",
         default=None,
     )
     soc_candidates: list[SocCandidate] = Field(
         description="""List of possible or alternative SOC codes that may be applicable
-        with their descriptive label and estimated likelihood."""
-    )
-    soc_code_2digits: Optional[str] = Field(
-        description="""First two digits of the hierarchical SOC code assigned.
-        This field should be non empty if the larger (two-digit) group of SOC codes
-        can be determined even in cases where additional information is needed to
-        to code to four digits (for example when all SOC candidates share
-        the same first two digits).""",
-        default=None,
+        with their descriptive label and estimated likelihood. Not more than 10 candidates.""",
     )
     reasoning: str = Field(
         description="""Step by step reasoning behind classification selected. Specifies
