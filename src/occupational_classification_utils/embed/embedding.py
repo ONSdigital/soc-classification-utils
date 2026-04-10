@@ -8,6 +8,7 @@ and performing similarity searches.
 import logging
 import os
 import uuid
+from importlib.resources import files
 from typing import Any, Optional, Union
 
 from autocorrect import Speller
@@ -17,7 +18,9 @@ from langchain_google_vertexai import VertexAIEmbeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 from occupational_classification.hierarchy.soc_hierarchy import SOC
 
-from occupational_classification_utils.models.config_model import FullConfig
+from occupational_classification_utils.models.config_model import (
+    FullConfig,
+)
 from occupational_classification_utils.utils.soc_data_access import (
     load_soc_hierarchy,
 )
@@ -39,6 +42,36 @@ embedding_config = {
 }
 
 
+_SOC_INDEX_PKG = "occupational_classification_utils.data.soc_index"
+# Same pattern as SIC (fixed package + filenames); try published workbook pairs in order.
+_SOC_WORKBOOK_PAIRS: tuple[tuple[str, str], ...] = (
+    (
+        "soc2020volume2thecodingindexexcel16042025.xlsx",
+        "soc2020volume1structureanddescriptionofunitgroupsexcel16042025.xlsx",
+    ),
+    (
+        "soc2020volume2thecodingindexexcel16102024.xlsx",
+        "soc2020volume1structureanddescriptionofunitgroupsexcel16102024.xlsx",
+    ),
+)
+
+
+def _resolve_soc_workbook_pair() -> tuple[str, str]:
+    """Pick the first Volume 1/2 pair present under the packaged ``soc_index`` directory."""
+    for vol2, vol1 in _SOC_WORKBOOK_PAIRS:
+        p2 = files(_SOC_INDEX_PKG).joinpath(vol2)
+        p1 = files(_SOC_INDEX_PKG).joinpath(vol1)
+        try:
+            if p2.is_file() and p1.is_file():
+                return (vol2, vol1)
+        except OSError:
+            continue
+    raise FileNotFoundError(
+        f"Add ONS SOC2020 Volume 1 and Volume 2 Excel files under {_SOC_INDEX_PKG!r} "
+        f"(expected filenames matching one of: {_SOC_WORKBOOK_PAIRS!r})."
+    )
+
+
 def get_config() -> FullConfig:
     """Returns the configuration dictionary for the LLM.
 
@@ -46,6 +79,7 @@ def get_config() -> FullConfig:
         dict: A dictionary containing configuration details for the embedding model
         and lookup file paths.
     """
+    vol2, vol1 = _resolve_soc_workbook_pair()
     return {
         "llm": {
             "llm_model_name": "gemini-1.0-pro",
@@ -53,18 +87,11 @@ def get_config() -> FullConfig:
             "db_dir": "src/occupational_classification_utils/data/vector_store",
         },
         "lookups": {
-            "soc_index": (
-                "occupational_classification_utils",
-                "data/soc_index/soc2020volume2thecodingindexexcel16102024.xlsx",
-            ),
-            "soc_structure": (
-                "occupational_classification_utils",
-                "data/soc_index/"
-                "soc2020volume1structureanddescriptionofunitgroupsexcel16102024.xlsx",
-            ),
+            "soc_index": (_SOC_INDEX_PKG, vol2),
+            "soc_structure": (_SOC_INDEX_PKG, vol1),
             "soc_condensed": (
-                "occupational_classification_utils",
-                "data/example/soc_4d_condensed.txt",
+                "occupational_classification_utils.data.example",
+                "soc_4d_condensed.txt",
             ),
         },
     }
@@ -149,7 +176,7 @@ class EmbeddingHandler:
             self._index_size,
         )
 
-        # 🔄 Update shared config
+        # Update shared config
         embedding_config["embedding_model_name"] = embedding_model_name
         embedding_config["llm_model_name"] = config["llm"].get(
             "llm_model_name", "unknown"
