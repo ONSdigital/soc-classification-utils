@@ -17,6 +17,9 @@ from occupational_classification_utils.utils.soc_data_access import (
     load_soc_structure,
 )
 
+# Mirror SIC test lint posture for fixture-injected test arguments.
+# pylint: disable=redefined-outer-name
+
 
 @pytest.fixture
 def mock_soc_index_excel_frame():
@@ -47,6 +50,7 @@ def mock_soc_structure_excel_frame():
 @pytest.mark.utils
 @patch("pandas.read_excel")
 def test_load_soc_index(mock_read_excel, mock_soc_index_excel_frame):
+    """Test SOC index loader normalises workbook columns to code/title."""
     mock_read_excel.return_value = mock_soc_index_excel_frame
     result = load_soc_index(
         (
@@ -61,7 +65,9 @@ def test_load_soc_index(mock_read_excel, mock_soc_index_excel_frame):
         dtype=str,
     )
     called_args, _ = mock_read_excel.call_args
-    assert str(called_args[0]).endswith("soc2020volume2thecodingindexexcel16042025.xlsx")
+    assert str(called_args[0]).endswith(
+        "soc2020volume2thecodingindexexcel16042025.xlsx"
+    )
     assert list(result.columns) == ["code", "title"]
     assert result["code"].iloc[0] == "2314"
 
@@ -69,6 +75,7 @@ def test_load_soc_index(mock_read_excel, mock_soc_index_excel_frame):
 @pytest.mark.utils
 @patch("pandas.read_excel")
 def test_load_soc_structure(mock_read_excel, mock_soc_structure_excel_frame):
+    """Test SOC structure loader extracts hierarchy code column from workbook."""
     mock_read_excel.return_value = mock_soc_structure_excel_frame
     result = load_soc_structure(
         (
@@ -97,6 +104,7 @@ def test_load_soc_structure(mock_read_excel, mock_soc_structure_excel_frame):
 
 @pytest.mark.utils
 def test_merge_structure_with_index_codes_adds_prefixes():
+    """Test index unit codes add missing prefix nodes into structure codes."""
     struct = pd.DataFrame({"code": ["2", "23"]})
     index = pd.DataFrame({"code": ["2314"]})
     merged = _merge_structure_with_index_codes(struct, index)
@@ -107,6 +115,7 @@ def test_merge_structure_with_index_codes_adds_prefixes():
 @patch("occupational_classification_utils.utils.soc_data_access.load_soc_structure")
 @patch("occupational_classification_utils.utils.soc_data_access.load_soc_index")
 def test_load_soc_hierarchy_merges_index_prefixes(mock_idx, mock_struct):
+    """Test full hierarchy load includes index-derived unit code and prefixes."""
     mock_idx.return_value = pd.DataFrame({"code": ["1111"], "title": ["Chief exec"]})
     mock_struct.return_value = pd.DataFrame({"code": ["1", "11", "111"]})
     soc = load_soc_hierarchy(
