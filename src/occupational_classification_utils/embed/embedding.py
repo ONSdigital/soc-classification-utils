@@ -43,7 +43,7 @@ embedding_config = {
 
 
 _SOC_INDEX_PKG = "occupational_classification_utils.data.soc_index"
-# Same pattern as SIC (fixed package + filenames); try published workbook pairs in order.
+# Same pattern as SIC (subpackage + filename); try published workbook pairs in order.
 _SOC_WORKBOOK_PAIRS: tuple[tuple[str, str], ...] = (
     (
         "soc2020volume2thecodingindexexcel16042025.xlsx",
