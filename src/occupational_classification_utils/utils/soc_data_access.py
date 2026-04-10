@@ -1,121 +1,178 @@
-"""Provides data access for key SOC files.
+"""Provides data access for key files.
 
 This module contains utility functions to load and process data from
-SOC-related Excel and text files. It accepts config-style (package, path) tuples
-and resolves them via importlib.resources, then calls the existing SOC library
-or reads text as needed. Filepaths are defined in the configuration in `embedding.py`.
-
-Public API is tuple-only (tuple[str, str]) for strict parity with SIC data-access.
+SOC-related Excel files. The filepaths for these files are defined in
+the configuration function in `embedding.py`.
 """
 
 import logging
-from importlib.resources import as_file, files
+from importlib.resources import files
 
 import pandas as pd
-from occupational_classification.data_access.soc_data_access import (
-    load_soc_index as _lib_load_soc_index,
-)
-from occupational_classification.data_access.soc_data_access import (
-    load_soc_structure as _lib_load_soc_structure,
-)
 from occupational_classification.hierarchy.soc_hierarchy import SOC, load_hierarchy
-from occupational_classification.meta.soc_meta import SocDB, SocMeta
+from occupational_classification.meta.soc_meta import SocMeta
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Type for config-style lookup: (package_name, path_within_package)
-_ResourceRef = tuple[str, str]
+_SOC_INDEX_SHEET = "SOC2020 coding index"
+_SOC_STRUCTURE_SHEET = "SOC2020 descriptions"
+_MAX_SOC_CODE_LENGTH = 4
+
+_STRUCTURE_CODE_COLS = [
+    "SOC\n2020 Major Group",
+    "SOC\n2020 Sub-Major Group",
+    "SOC\n2020 Minor Group",
+    "SOC 2020 Unit Group",
+]
 
 
-def load_soc_index(resource_ref: _ResourceRef) -> pd.DataFrame:
-    """Loads the SOC index from an Excel file.
+def _combine_soc_index_job_title(row: pd.Series) -> str:
+    job_title = ""
+    if pd.notna(row["add"]):
+        job_title += f"{row['add']} "
+    if pd.notna(row["natural_word"]):
+        job_title += str(row["natural_word"])
+    if pd.notna(row["ind"]):
+        job_title += f" ({row['ind']})"
+    return job_title.strip()
 
-    Accepts a config-style tuple (package, path). Resolves via importlib.resources
-    and calls the SOC library. Strict parity with SIC: tuple-only.
+
+def _all_prefix_codes_from_unit_codes(series: pd.Series) -> set[str]:
+    out: set[str] = set()
+    for raw in series.dropna():
+        label = str(raw).strip()
+        if not label.isdigit():
+            continue
+        cap = min(len(label), _MAX_SOC_CODE_LENGTH)
+        for i in range(1, cap + 1):
+            out.add(label[:i])
+    return out
+
+
+def _merge_structure_with_index_codes(
+    struct_df: pd.DataFrame, index_df: pd.DataFrame
+) -> pd.DataFrame:
+    """Ensure every coding-index unit code (and its prefixes) has a hierarchy row."""
+    codes = set(
+        struct_df["code"].astype(str).str.strip()
+    ) | _all_prefix_codes_from_unit_codes(index_df["code"])
+    sorted_codes = sorted(codes, key=lambda c: (len(c), c))
+    return pd.DataFrame({"code": sorted_codes})
+
+
+def load_soc_index(resource_ref: tuple[str, str]) -> pd.DataFrame:
+    """Loads the SOC coding index from an Excel file.
+
+    The workbook lists index occupations and their SOC 2020 unit codes.
 
     Args:
-        resource_ref: Tuple (package_name, path) for the SOC index.
+        resource_ref: ``(package_name, filename)`` for the Volume 2 index workbook.
 
     Returns:
-        DataFrame containing the SOC index.
+        DataFrame with columns ``code`` and ``title``.
     """
-    with as_file(files(resource_ref[0]).joinpath(resource_ref[1])) as path:
-        return _lib_load_soc_index(str(path))
+    pkg, filename = resource_ref
+    file_path = files(pkg).joinpath(filename)
+
+    logger.debug("Loading SOC index from %s", file_path)
+
+    soc_index_df = pd.read_excel(
+        file_path,
+        sheet_name=_SOC_INDEX_SHEET,
+        usecols=["SOC_2020", "INDEXOCC_-_natural_word_order", "ADD", "IND"],
+        dtype=str,
+    )
+    soc_index_df.columns = [col.lower() for col in soc_index_df.columns]
+    soc_index_df = soc_index_df.rename(
+        columns={
+            "indexocc_-_natural_word_order": "natural_word",
+            "soc_2020": "code",
+        }
+    )
+    soc_index_df = soc_index_df[soc_index_df["code"] != "}}}}"]
+    soc_index_df["title"] = soc_index_df.apply(_combine_soc_index_job_title, axis=1)
+    soc_index_df = soc_index_df.dropna(subset=["code", "title"])
+    soc_index_df = soc_index_df[["code", "title"]]
+    soc_index_df["code"] = soc_index_df["code"].astype(str).str.strip()
+    soc_index_df["title"] = (
+        soc_index_df["title"].astype(str).str.strip().str.capitalize()
+    )
+    soc_index_df = soc_index_df[soc_index_df["code"].str.fullmatch(r"\d+")]
+    return soc_index_df.reset_index(drop=True)
 
 
-def load_soc_structure(resource_ref: _ResourceRef) -> pd.DataFrame:
+def load_soc_structure(resource_ref: tuple[str, str]) -> pd.DataFrame:
     """Loads the SOC structure from an Excel file.
 
-    Accepts a config-style tuple (package, path). Resolves via importlib.resources
-    and calls the SOC library. Strict parity with SIC: tuple-only.
+    Reads Volume 1 unit-group columns and returns a single ``code`` column
+    suitable for ``load_hierarchy`` (mirrors how SIC structure feeds ``load_hierarchy``).
 
     Args:
-        resource_ref: Tuple (package_name, path) for the SOC structure.
+        resource_ref: ``(package_name, filename)`` for the Volume 1 structure workbook.
 
     Returns:
-        DataFrame containing the SOC structure.
+        DataFrame with column ``code`` for each hierarchy node (1-4 digits).
     """
-    with as_file(files(resource_ref[0]).joinpath(resource_ref[1])) as path:
-        return _lib_load_soc_structure(str(path))
+    pkg, filename = resource_ref
+    file_path = files(pkg).joinpath(filename)
+
+    logger.debug("Loading SOC structure from %s", file_path)
+
+    soc_df = pd.read_excel(
+        file_path,
+        sheet_name=_SOC_STRUCTURE_SHEET,
+        usecols=_STRUCTURE_CODE_COLS,
+        dtype=str,
+    )
+    codes: set[str] = set()
+    for col in soc_df.columns:
+        for raw in soc_df[col].dropna():
+            v = str(raw).strip()
+            if v.isdigit() and 1 <= len(v) <= _MAX_SOC_CODE_LENGTH:
+                codes.add(v)
+    sorted_codes = sorted(codes, key=lambda c: (len(c), c))
+    return pd.DataFrame({"code": sorted_codes})
 
 
-def load_soc_hierarchy(index_ref: _ResourceRef, structure_ref: _ResourceRef) -> SOC:
-    """Loads the SOC hierarchy from index and structure refs.
+def load_soc_hierarchy(
+    index_ref: tuple[str, str], structure_ref: tuple[str, str]
+) -> SOC:
+    """Loads hierarchy via ``load_soc_index``, ``load_soc_structure``, and ``load_hierarchy``."""
+    soc_index_df = load_soc_index(index_ref)
+    soc_df = load_soc_structure(structure_ref)
+    soc_df = _merge_structure_with_index_codes(soc_df, soc_index_df)
+    return load_hierarchy(soc_df, soc_index_df)
 
-    Accepts config-style tuples only. Resolves both inside a single context
-    so that paths remain valid for load_hierarchy. Strict parity with SIC.
+
+def get_soc_meta(structure_ref: tuple[str, str]):
+    """Returns in-library SOC metadata (``SocMeta.soc_meta``).
+
+    ``structure_ref`` is unused; retained for config shape parity with SIC callers.
 
     Args:
-        index_ref: Tuple (package_name, path) for the SOC index.
-        structure_ref: Tuple (package_name, path) for the SOC structure.
+        structure_ref: Tuple ``(package_name, path)`` (unused).
 
     Returns:
-        The loaded SOC hierarchy object.
+        The ``soc_meta`` mapping from ``SocMeta()``.
     """
-    with as_file(files(index_ref[0]).joinpath(index_ref[1])) as path1, as_file(
-        files(structure_ref[0]).joinpath(structure_ref[1])
-    ) as path2:
-        soc_index_df = _lib_load_soc_index(str(path1))
-        soc_df_input = _lib_load_soc_structure(str(path2))
-        soc_df = SocDB.create_soc_dataframe(SocDB(soc_df_input).df)
-        return load_hierarchy(
-            soc_df,
-            soc_index_df,
-            structure_data_path=str(path2),
-        )
+    _ = structure_ref
+    return SocMeta().soc_meta
 
 
-def get_soc_meta(structure_ref: _ResourceRef):
-    """Returns SocMeta.soc_meta for the given structure ref.
-
-    Accepts a config-style tuple only. Resolution and loading happen inside
-    the resource context. Strict parity with SIC.
-
-    Args:
-        structure_ref: Tuple (package_name, path) for the SOC structure.
-
-    Returns:
-        The soc_meta object from SocMeta(structure_path).soc_meta.
-    """
-    with as_file(files(structure_ref[0]).joinpath(structure_ref[1])) as path:
-        return SocMeta(str(path)).soc_meta
-
-
-def load_text_from_config(resource_ref: _ResourceRef) -> str:
+def load_text_from_config(config_section: tuple[str, str]) -> str:
     """Loads text content from a configuration file.
 
-    Accepts a config-style tuple (package, path) and resolves it via
-    importlib.resources, matching the SIC data-access API.
-
     Args:
-        resource_ref: Tuple (package_name, path) for the text file.
+        config_section: Tuple containing the package name and the filename.
 
     Returns:
         The file content as a string.
     """
-    pkg, filename = resource_ref
+    pkg, filename = config_section
     file_path = files(pkg).joinpath(filename)
+
     logger.debug("Loading text from %s", file_path)
+
     with file_path.open(encoding="utf-8") as f:
         return f.read()
