@@ -31,9 +31,9 @@ class LookupsConfig(TypedDict):
     """Configuration for SOC-related lookup tables.
 
     Attributes:
-        soc_index (tuple[str, str]): Path to the SOC index file.
-        soc_structure (tuple[str, str]): Path to the SOC structure file.
-        soc_condensed (tuple[str, str]): Path to the condensed SOC file.
+        soc_index (tuple[str, str]): Path to the SOC coding index Excel file.
+        soc_structure (tuple[str, str]): Path to the SOC structure Excel file.
+        soc_condensed (tuple[str, str]): Path to the condensed SOC text file.
     """
 
     soc_index: tuple[str, str]
