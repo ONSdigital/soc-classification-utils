@@ -10,6 +10,14 @@ from langchain_core.messages import AIMessage
 from langchain_google_vertexai import ChatVertexAI
 from langchain_openai import ChatOpenAI
 
+from importlib.resources import as_file, files
+
+from occupational_classification.data_access.soc_data_access import (
+    load_soc_index as lib_load_soc_index,
+    load_soc_structure as lib_load_soc_structure,
+)
+from occupational_classification.hierarchy.soc_hierarchy import load_hierarchy
+
 from occupational_classification_utils.llm.llm import ClassificationLLM
 from occupational_classification_utils.models.response_model import SocResponse
 
@@ -94,6 +102,22 @@ def test_pass_llm_argument():
 @pytest.mark.llm
 def test_llm_model_default():
     assert isinstance(ClassificationLLM().llm, ChatVertexAI)
+
+
+@pytest.mark.llm
+def test_prompt_candidate_strict_hierarchy_lookup_matches_sic_shape(mock_vertex_ai):
+    """Prompt line comes from ``self.soc[code]`` (no vector-store title fallback)."""
+    llm = ClassificationLLM(model_name=MODEL_NAME)
+    ref = ("occupational_classification", "data/example_soc_lookup_data.csv")
+    with as_file(files(ref[0]).joinpath(ref[1])) as path:
+        p = str(path)
+        idx = lib_load_soc_index(p)
+        llm.soc = load_hierarchy(lib_load_soc_structure(p), idx)
+    code = idx["code"].iloc[0]
+    out = llm._prompt_candidate(code, ["Example from search"])
+    assert code in out
+    assert llm.soc[code].group_title in out
+    assert "Example from search" in out
 
 
 @pytest.mark.llm
