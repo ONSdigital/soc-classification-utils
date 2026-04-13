@@ -40,9 +40,7 @@ def test_load_soc_structure(csv_resource_ref):
     """SOC structure loader derives hierarchy prefixes from CSV label codes."""
     result = load_soc_structure(csv_resource_ref)
     assert list(result.columns) == ["code"]
-    assert {"2", "23", "231", "2314", "4", "41", "411", "4111"} <= set(
-        result["code"]
-    )
+    assert {"2", "23", "231", "2314", "4", "41", "411", "4111"} <= set(result["code"])
 
 
 @pytest.mark.utils
