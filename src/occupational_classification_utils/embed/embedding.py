@@ -62,11 +62,11 @@ def get_config() -> FullConfig:
         "lookups": {
             "soc_index": (
                 "occupational_classification_utils.data.soc_index",
-                "example_soc_lookup_data.csv",
+                "soc2020volume2thecodingindexexcel16102024.xlsx",
             ),
             "soc_structure": (
                 "occupational_classification_utils.data.soc_index",
-                "example_soc_lookup_data.csv",
+                "soc2020volume1structureanddescriptionofunitgroupsexcel16102024.xlsx",
             ),
             "soc_condensed": (
                 "occupational_classification_utils.data.example",
