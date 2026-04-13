@@ -5,10 +5,14 @@ It includes functionality for embedding SOC hierarchy data, managing vector stor
 and performing similarity searches.
 """
 
+# Optional but doesn't hurt
 import logging
 import os
+import sqlite3  # noqa: F401 # pylint: disable=unused-import
+
+# Docker Image may have old sqlite3 version for ChromaDB
+# Top of your module (before any langchain or chroma import)
 import uuid
-from importlib.resources import files
 from typing import Any, Optional, Union
 
 from autocorrect import Speller
@@ -42,36 +46,6 @@ embedding_config = {
 }
 
 
-_SOC_INDEX_PKG = "occupational_classification_utils.data.soc_index"
-# Same pattern as SIC (subpackage + filename); try published workbook pairs in order.
-_SOC_WORKBOOK_PAIRS: tuple[tuple[str, str], ...] = (
-    (
-        "soc2020volume2thecodingindexexcel16042025.xlsx",
-        "soc2020volume1structureanddescriptionofunitgroupsexcel16042025.xlsx",
-    ),
-    (
-        "soc2020volume2thecodingindexexcel16102024.xlsx",
-        "soc2020volume1structureanddescriptionofunitgroupsexcel16102024.xlsx",
-    ),
-)
-
-
-def _resolve_soc_workbook_pair() -> tuple[str, str]:
-    """Pick the first Volume 1/2 pair present under the packaged ``soc_index`` directory."""
-    for vol2, vol1 in _SOC_WORKBOOK_PAIRS:
-        p2 = files(_SOC_INDEX_PKG).joinpath(vol2)
-        p1 = files(_SOC_INDEX_PKG).joinpath(vol1)
-        try:
-            if p2.is_file() and p1.is_file():
-                return (vol2, vol1)
-        except OSError:
-            continue
-    raise FileNotFoundError(
-        f"Add ONS SOC2020 Volume 1 and Volume 2 Excel files under {_SOC_INDEX_PKG!r} "
-        f"(expected filenames matching one of: {_SOC_WORKBOOK_PAIRS!r})."
-    )
-
-
 def get_config() -> FullConfig:
     """Returns the configuration dictionary for the LLM.
 
@@ -79,7 +53,6 @@ def get_config() -> FullConfig:
         dict: A dictionary containing configuration details for the embedding model
         and lookup file paths.
     """
-    vol2, vol1 = _resolve_soc_workbook_pair()
     return {
         "llm": {
             "llm_model_name": "gemini-1.0-pro",
@@ -87,8 +60,14 @@ def get_config() -> FullConfig:
             "db_dir": "src/occupational_classification_utils/data/vector_store",
         },
         "lookups": {
-            "soc_index": (_SOC_INDEX_PKG, vol2),
-            "soc_structure": (_SOC_INDEX_PKG, vol1),
+            "soc_index": (
+                "occupational_classification_utils.data.soc_index",
+                "example_soc_lookup_data.csv",
+            ),
+            "soc_structure": (
+                "occupational_classification_utils.data.soc_index",
+                "example_soc_lookup_data.csv",
+            ),
             "soc_condensed": (
                 "occupational_classification_utils.data.example",
                 "soc_4d_condensed.txt",
@@ -176,7 +155,7 @@ class EmbeddingHandler:
             self._index_size,
         )
 
-        # Update shared config
+        # 🔄 Update shared config
         embedding_config["embedding_model_name"] = embedding_model_name
         embedding_config["llm_model_name"] = config["llm"].get(
             "llm_model_name", "unknown"
@@ -302,6 +281,7 @@ class EmbeddingHandler:
             soc_structure_file (optional): Config-style tuple (package, path) to override
                 default SOC structure source. Must be tuple for data-access parity with SIC.
         """
+        # Log parameters
         logger.info(
             "Embedding index: from_empty=%s, soc=%s, file_object=%s, "
             "soc_index_file=%s, soc_structure_file=%s",
