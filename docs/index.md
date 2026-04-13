@@ -7,7 +7,7 @@ SOC utils follow the same startup/data-loading pattern as SIC:
 - hierarchy/index loading defaults to packaged resources in
   `occupational_classification_utils.data.soc_index` (same config tuple shape as SIC)
 - metadata is provided in-library via `SocMeta`
-- no utils-packaged Excel workbooks are required for default classify/embed startup
+- classify/embed paths can load SOC workbooks in the same utils layer where SIC uses workbooks
 
 Public ONS SOC 2020 publications remain useful reference sources:
 - [SOC 2020 Volume 1: structure and descriptions of unit groups](https://www.ons.gov.uk/methodology/classificationsandstandards/standardoccupationalclassificationsoc/soc2020/soc2020volume1structureanddescriptionsofunitgroups). Download [link](https://www.ons.gov.uk/file?uri=/methodology/classificationsandstandards/standardoccupationalclassificationsoc/soc2020/soc2020volume1structureanddescriptionsofunitgroups/soc2020volume1structureanddescriptionofunitgroupsexcel16042025.xlsx)
