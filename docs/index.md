@@ -4,8 +4,8 @@ This code is used to implement a Standard Occupational Classification (SOC) libr
 
 ## Data sources
 SOC utils follow the same startup/data-loading pattern as SIC:
-- hierarchy/index loading defaults to packaged CSV resources from
-  `soc-classification-library`
+- hierarchy/index loading defaults to packaged resources in
+  `occupational_classification_utils.data.soc_index` (same config tuple shape as SIC)
 - metadata is provided in-library via `SocMeta`
 - no utils-packaged Excel workbooks are required for default classify/embed startup
 
