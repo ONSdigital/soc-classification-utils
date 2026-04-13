@@ -16,6 +16,17 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def _combine_soc_index_job_title(row: pd.Series) -> str:
+    job_title = ""
+    if pd.notna(row["add"]):
+        job_title += f"{row['add']} "
+    if pd.notna(row["indexocc"]):
+        job_title += str(row["indexocc"])
+    if pd.notna(row["ind"]):
+        job_title += f" ({row['ind']})"
+    return job_title.strip()
+
+
 def load_soc_index(resource_ref: tuple[str, str]) -> pd.DataFrame:
     """Loads the SOC index from an Excel file.
 
@@ -30,41 +41,17 @@ def load_soc_index(resource_ref: tuple[str, str]) -> pd.DataFrame:
     file_path = files(pkg).joinpath(filename)
     logger.debug("Loading SOC index from %s", file_path)
 
-    soc_index_df = pd.read_excel(file_path, dtype=str)
-
-    columns = {col.lower().strip(): col for col in soc_index_df.columns}
-    code_column = next(
-        (
-            columns[name]
-            for name in ("soc 2020", "soc2020", "soc 2020 code", "soc code", "code")
-            if name in columns
-        ),
-        None,
+    soc_index_df = pd.read_excel(
+        file_path,
+        sheet_name="SOC2020 coding index",
+        usecols=["SOC_2020", "INDEXOCC", "ADD", "IND"],
+        dtype=str,
     )
-    title_column = next(
-        (
-            columns[name]
-            for name in (
-                "index entry",
-                "group title",
-                "description",
-                "activity",
-                "title",
-            )
-            if name in columns
-        ),
-        None,
-    )
-
-    if code_column is None or title_column is None:
-        raise ValueError(
-            "SOC index workbook must contain code and title columns "
-            "(for example 'SOC 2020' and 'Index entry')."
-        )
-
-    soc_index_df = soc_index_df[[code_column, title_column]].copy()
-    soc_index_df.columns = ["code", "title"]
+    soc_index_df.columns = [col.lower() for col in soc_index_df.columns]
+    soc_index_df = soc_index_df.rename(columns={"soc_2020": "code"})
+    soc_index_df["title"] = soc_index_df.apply(_combine_soc_index_job_title, axis=1)
     soc_index_df = soc_index_df.dropna(subset=["code", "title"])
+    soc_index_df = soc_index_df[["code", "title"]]
     soc_index_df["code"] = soc_index_df["code"].astype(str).str.strip()
     soc_index_df["title"] = soc_index_df["title"].astype(str).str.strip()
     soc_index_df = soc_index_df[soc_index_df["code"].str.fullmatch(r"\d+")]
@@ -84,33 +71,24 @@ def load_soc_structure(resource_ref: tuple[str, str]) -> pd.DataFrame:
     file_path = files(pkg).joinpath(filename)
     logger.debug("Loading SOC structure from %s", file_path)
 
-    soc_df = pd.read_excel(file_path, dtype=str)
-
-    columns = {col.lower().strip(): col for col in soc_df.columns}
-    code_column = next(
-        (
-            columns[name]
-            for name in ("soc 2020", "soc2020", "soc code", "code", "label")
-            if name in columns
-        ),
-        None,
+    soc_df = pd.read_excel(
+        file_path,
+        sheet_name="SOC2020 descriptions",
+        usecols=[
+            "SOC\n2020 Major Group",
+            "SOC\n2020 Sub-Major Group",
+            "SOC\n2020 Minor Group",
+            "SOC 2020 Unit Group",
+        ],
+        dtype=str,
     )
-    if code_column is None:
-        raise ValueError(
-            "SOC structure workbook must contain a SOC code column "
-            "(for example 'SOC 2020')."
-        )
-
-    soc_df = soc_df[[code_column]].copy()
-    soc_df.columns = ["code"]
-    soc_df = soc_df.dropna(subset=["code"])
-    soc_df["code"] = soc_df["code"].astype(str).str.strip()
-    soc_df = soc_df[soc_df["code"].str.fullmatch(r"\d+")]
 
     codes: set[str] = set()
-    for code in soc_df["code"]:
-        for i in range(1, len(code) + 1):
-            codes.add(code[:i])
+    for col in soc_df.columns:
+        for raw in soc_df[col].dropna():
+            code = str(raw).strip()
+            if code.isdigit():
+                codes.add(code)
     return pd.DataFrame({"code": sorted(codes, key=lambda c: (len(c), c))})
 
 
