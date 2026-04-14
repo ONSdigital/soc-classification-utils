@@ -255,7 +255,10 @@ class EmbeddingHandler:
                     },
                 )
             )
-            ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, row["text"])))
+            # Keep deterministic IDs while preventing collisions when
+            # different SOC codes share the same text description.
+            id_seed = f"{code}:{row['text']}"
+            ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, id_seed)))
         return docs, ids, soc_index_file, soc_structure_file
 
     def embed_index(  # pylint: disable=too-many-arguments, too-many-positional-arguments, too-many-locals
