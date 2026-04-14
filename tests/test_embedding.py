@@ -2,8 +2,9 @@
 and searching functionalities.
 """
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+import pandas as pd
 import pytest
 
 from occupational_classification_utils.embed.embedding import EmbeddingHandler
@@ -101,3 +102,28 @@ def test_embedding_handler_initialisation(model_name, expected_class):
         else:
             mock_vertex.assert_called_once_with(model=model_name)
             mock_hf.assert_not_called()
+
+
+@pytest.mark.embed
+def test_docs_ids_from_hierarchy_use_code_and_text_for_unique_ids():
+    """IDs remain unique when two SOC codes share the same text."""
+    handler = EmbeddingHandler(db_dir=None)
+    mock_soc = MagicMock()
+    mock_soc.all_leaf_text.return_value = pd.DataFrame(
+        [
+            {"code": "1111", "text": "Shared description"},
+            {"code": "2222", "text": "Shared description"},
+        ]
+    )
+
+    docs, ids, _, _ = (
+        handler._docs_ids_from_hierarchy(  # pylint: disable=protected-access
+            soc=mock_soc,
+            soc_index_file=("pkg", "index.xlsx"),
+            soc_structure_file=("pkg", "structure.xlsx"),
+        )
+    )
+
+    assert len(docs) == 2  # noqa: PLR2004
+    assert len(ids) == 2  # noqa: PLR2004
+    assert len(set(ids)) == 2  # noqa: PLR2004
