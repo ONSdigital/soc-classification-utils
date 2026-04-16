@@ -130,8 +130,10 @@ class EmbeddingHandler:
         self.k_matches = k_matches
         self.spell = Speller()
         self._index_size = self.vector_store._client.get_collection("langchain").count()
-        self._effective_soc_index_file = config["lookups"]["soc_index"]
-        self._effective_soc_structure_file = config["lookups"]["soc_structure"]
+        self._effective_soc_sources = (
+            config["lookups"]["soc_index"],
+            config["lookups"]["soc_structure"],
+        )
 
         logger.info(
             "Vector store created in: %s containing %s entries.",
@@ -311,15 +313,14 @@ class EmbeddingHandler:
             "Inserted %s entries into vector embedding database.", f"{len(docs):,}"
         )
 
-        self._effective_soc_index_file = effective_index_file
-        self._effective_soc_structure_file = effective_structure_file
+        self._effective_soc_sources = (effective_index_file, effective_structure_file)
         logger.info(
             "Embedding state updated model=%s db_dir=%s soc_index=%s soc_structure=%s "
             "matches=%s index_size=%s",
             self.embeddings.model_name,
             self.db_dir,
-            self._effective_soc_index_file,
-            self._effective_soc_structure_file,
+            self._effective_soc_sources[0],
+            self._effective_soc_sources[1],
             self.k_matches,
             self._index_size,
         )
@@ -377,8 +378,8 @@ class EmbeddingHandler:
         return {
             "embedding_model_name": str(self.embeddings.model_name),
             "db_dir": str(self.db_dir),
-            "soc_index": str(self._effective_soc_index_file),
-            "soc_structure": str(self._effective_soc_structure_file),
+            "soc_index": str(self._effective_soc_sources[0]),
+            "soc_structure": str(self._effective_soc_sources[1]),
             "matches": self.k_matches,
             "index_size": self._index_size,
         }
