@@ -44,11 +44,13 @@ def load_soc_index(resource_ref: tuple[str, str]) -> pd.DataFrame:
     soc_index_df = pd.read_excel(
         file_path,
         sheet_name="SOC2020 coding index",
-        usecols=["SOC_2020", "INDEXOCC", "ADD", "IND"],
+        usecols=["SOC_2020", "INDEXOCC_-_natural_word_order", "ADD", "IND"],
         dtype=str,
     )
     soc_index_df.columns = [col.lower() for col in soc_index_df.columns]
-    soc_index_df = soc_index_df.rename(columns={"soc_2020": "code"})
+    soc_index_df = soc_index_df.rename(
+        columns={"soc_2020": "code", "indexocc_-_natural_word_order": "indexocc"}
+    )
     soc_index_df["title"] = soc_index_df.apply(_combine_soc_index_job_title, axis=1)
     soc_index_df = soc_index_df.dropna(subset=["code", "title"])
     soc_index_df = soc_index_df[["code", "title"]]
