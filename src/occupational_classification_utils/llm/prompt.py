@@ -24,14 +24,12 @@ Attributes:
 
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts.prompt import PromptTemplate
+from occupational_classification.data_access.soc_data_access import load_soc_index
 
 from occupational_classification_utils.embed.embedding import get_config
 from occupational_classification_utils.models.response_model import (
     RagResponse,
     SocResponse,
-)
-from occupational_classification_utils.utils.soc_data_access import (
-    load_soc_index,
 )
 
 config = get_config()
