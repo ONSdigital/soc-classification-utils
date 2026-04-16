@@ -32,7 +32,10 @@ def test_load_soc_index(mock_read_excel, soc_index_workbook_ref):
     mock_read_excel.return_value = pd.DataFrame(
         {
             "SOC_2020": ["2314", "4111"],
-            "INDEXOCC": ["Primary teacher", "Benefits fraud investigator"],
+            "INDEXOCC_-_natural_word_order": [
+                "Teacher, primary",
+                "Investigator, benefits fraud",
+            ],
             "ADD": [None, "Senior"],
             "IND": [None, "Fraud team"],
         }
@@ -42,7 +45,7 @@ def test_load_soc_index(mock_read_excel, soc_index_workbook_ref):
     mock_read_excel.assert_called_once_with(
         ANY,
         sheet_name="SOC2020 coding index",
-        usecols=["SOC_2020", "INDEXOCC", "ADD", "IND"],
+        usecols=["SOC_2020", "INDEXOCC_-_natural_word_order", "ADD", "IND"],
         dtype=str,
     )
     called_args, _ = mock_read_excel.call_args
@@ -52,7 +55,7 @@ def test_load_soc_index(mock_read_excel, soc_index_workbook_ref):
 
     assert list(result.columns) == ["code", "title"]
     assert set(result["code"]) == {"2314", "4111"}
-    assert "Primary teacher" in result["title"].tolist()
+    assert "Teacher, primary" in result["title"].tolist()
 
 
 @pytest.mark.utils
@@ -105,7 +108,10 @@ def test_load_soc_hierarchy_workbook_resources(mock_read_excel, soc_index_workbo
         pd.DataFrame(
             {
                 "SOC_2020": ["2314", "4111"],
-                "INDEXOCC": ["Primary teacher", "Benefits fraud investigator"],
+                "INDEXOCC_-_natural_word_order": [
+                    "Teacher, primary",
+                    "Investigator, benefits fraud",
+                ],
                 "ADD": [None, None],
                 "IND": [None, None],
             }
