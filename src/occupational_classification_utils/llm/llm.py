@@ -24,6 +24,10 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain_core.documents import Document
 from langchain_google_vertexai import ChatVertexAI
 from langchain_openai import ChatOpenAI
+from occupational_classification.data_access.soc_data_access import (
+    get_soc_meta,
+    load_soc_hierarchy,
+)
 from occupational_classification.hierarchy.soc_hierarchy import SOC
 from pydantic import SecretStr
 from survey_assist_utils.logging import get_logger
@@ -35,10 +39,6 @@ from occupational_classification_utils.llm.prompt import (
     SOC_PROMPT_PYDANTIC,
 )
 from occupational_classification_utils.models.response_model import SocResponse
-from occupational_classification_utils.utils.soc_data_access import (
-    get_soc_meta,
-    load_soc_hierarchy,
-)
 
 logger = get_logger(__name__)
 config = get_config()
