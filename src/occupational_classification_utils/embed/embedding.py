@@ -20,13 +20,11 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_google_vertexai import VertexAIEmbeddings
 from langchain_huggingface import HuggingFaceEmbeddings
+from occupational_classification.data_access.soc_data_access import load_soc_hierarchy
 from occupational_classification.hierarchy.soc_hierarchy import SOC
 
 from occupational_classification_utils.models.config_model import (
     FullConfig,
-)
-from occupational_classification_utils.utils.soc_data_access import (
-    load_soc_hierarchy,
 )
 
 logging.basicConfig(level=logging.INFO)
