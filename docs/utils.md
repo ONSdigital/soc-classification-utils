@@ -1,3 +1,3 @@
 # Embeddings Module
 
-::: occupational_classification_utils.utils.soc_data_access
+::: occupational_classification.data_access.soc_data_access
