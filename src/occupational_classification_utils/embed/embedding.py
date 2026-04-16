@@ -33,17 +33,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# Share configuration with other modules
-embedding_config = {
-    "embedding_model_name": "unknown",
-    "db_dir": "unknown",
-    "soc_index": "unknown",
-    "soc_structure": "unknown",
-    "matches": 0,
-    "index_size": 0,
-}
-
-
 def get_config() -> FullConfig:
     """Returns the configuration dictionary for the LLM.
 
@@ -141,6 +130,8 @@ class EmbeddingHandler:
         self.k_matches = k_matches
         self.spell = Speller()
         self._index_size = self.vector_store._client.get_collection("langchain").count()
+        self._effective_soc_index_file = config["lookups"]["soc_index"]
+        self._effective_soc_structure_file = config["lookups"]["soc_structure"]
 
         logger.info(
             "Vector store created in: %s containing %s entries.",
@@ -148,12 +139,13 @@ class EmbeddingHandler:
             self._index_size,
         )
 
-        # 🔄 Update shared config
-        embedding_config["embedding_model_name"] = embedding_model_name
-        embedding_config["db_dir"] = db_dir
-        embedding_config["matches"] = self.k_matches
-        embedding_config["index_size"] = self._index_size
-        logger.debug("EmbeddingHandler initialised with config: %s", embedding_config)
+        logger.debug(
+            "EmbeddingHandler initialised model=%s db_dir=%s matches=%s index_size=%s",
+            embedding_model_name,
+            self.db_dir,
+            self.k_matches,
+            self._index_size,
+        )
 
     def _create_vector_store(self) -> Chroma:
         """Initializes the Chroma vector store.
@@ -319,14 +311,18 @@ class EmbeddingHandler:
             "Inserted %s entries into vector embedding database.", f"{len(docs):,}"
         )
 
-        # Update shared config
-        embedding_config["index_size"] = self._index_size
-        embedding_config["soc_index"] = effective_index_file
-        embedding_config["soc_structure"] = effective_structure_file
-        embedding_config["matches"] = self.k_matches
-        embedding_config["db_dir"] = self.db_dir
-        embedding_config["embedding_model_name"] = self.embeddings.model_name
-        logger.info("Embedding config updated: %s", embedding_config)
+        self._effective_soc_index_file = effective_index_file
+        self._effective_soc_structure_file = effective_structure_file
+        logger.info(
+            "Embedding state updated model=%s db_dir=%s soc_index=%s soc_structure=%s "
+            "matches=%s index_size=%s",
+            self.embeddings.model_name,
+            self.db_dir,
+            self._effective_soc_index_file,
+            self._effective_soc_structure_file,
+            self.k_matches,
+            self._index_size,
+        )
 
     def search_index(
         self, query: str, return_dicts: bool = True
@@ -379,10 +375,10 @@ class EmbeddingHandler:
     def get_embed_config(self) -> dict:
         """Returns the current embedding configuration as a dictionary."""
         return {
-            "embedding_model_name": str(embedding_config["embedding_model_name"]),
-            "db_dir": str(embedding_config["db_dir"]),
-            "soc_index": str(embedding_config["soc_index"]),
-            "soc_structure": str(embedding_config["soc_structure"]),
-            "matches": embedding_config["matches"],
-            "index_size": embedding_config["index_size"],
+            "embedding_model_name": str(self.embeddings.model_name),
+            "db_dir": str(self.db_dir),
+            "soc_index": str(self._effective_soc_index_file),
+            "soc_structure": str(self._effective_soc_structure_file),
+            "matches": self.k_matches,
+            "index_size": self._index_size,
         }
