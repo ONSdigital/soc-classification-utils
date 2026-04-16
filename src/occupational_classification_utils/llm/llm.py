@@ -42,6 +42,7 @@ from occupational_classification_utils.utils.soc_data_access import (
 
 logger = get_logger(__name__)
 config = get_config()
+DEFAULT_LLM_MODEL = "gemini-1.0-pro"
 
 
 # pylint: disable=too-many-instance-attributes
@@ -65,7 +66,7 @@ class ClassificationLLM:
 
     def __init__(  # noqa: PLR0913
         self,
-        model_name: str = config["llm"]["llm_model_name"],
+        model_name: str = DEFAULT_LLM_MODEL,
         llm: Optional[Union[ChatVertexAI, ChatOpenAI]] = None,
         max_tokens: int = 1600,
         temperature: float = 0.0,
