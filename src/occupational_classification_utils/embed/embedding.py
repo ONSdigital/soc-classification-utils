@@ -36,11 +36,9 @@ logger = logging.getLogger(__name__)
 # Share configuration with other modules
 embedding_config = {
     "embedding_model_name": "unknown",
-    "llm_model_name": "unknown",
     "db_dir": "unknown",
     "soc_index": "unknown",
     "soc_structure": "unknown",
-    "soc_condensed": "unknown",
     "matches": 0,
     "index_size": 0,
 }
@@ -55,7 +53,6 @@ def get_config() -> FullConfig:
     """
     return {
         "llm": {
-            "llm_model_name": "gemini-1.0-pro",
             "embedding_model_name": "all-MiniLM-L6-v2",  # text-embedding-004
             "db_dir": "src/occupational_classification_utils/data/vector_store",
         },
@@ -67,10 +64,6 @@ def get_config() -> FullConfig:
             "soc_structure": (
                 "occupational_classification_utils.data.soc_index",
                 "soc2020volume1structureanddescriptionofunitgroupsexcel16102024.xlsx",
-            ),
-            "soc_condensed": (
-                "occupational_classification_utils.data.example",
-                "soc_4d_condensed.txt",
             ),
         },
     }
@@ -157,9 +150,6 @@ class EmbeddingHandler:
 
         # 🔄 Update shared config
         embedding_config["embedding_model_name"] = embedding_model_name
-        embedding_config["llm_model_name"] = config["llm"].get(
-            "llm_model_name", "unknown"
-        )
         embedding_config["db_dir"] = db_dir
         embedding_config["matches"] = self.k_matches
         embedding_config["index_size"] = self._index_size
@@ -333,13 +323,9 @@ class EmbeddingHandler:
         embedding_config["index_size"] = self._index_size
         embedding_config["soc_index"] = effective_index_file
         embedding_config["soc_structure"] = effective_structure_file
-        embedding_config["soc_condensed"] = config["lookups"]["soc_condensed"]
         embedding_config["matches"] = self.k_matches
         embedding_config["db_dir"] = self.db_dir
         embedding_config["embedding_model_name"] = self.embeddings.model_name
-        embedding_config["llm_model_name"] = config["llm"].get(
-            "llm_model_name", "unknown"
-        )
         logger.info("Embedding config updated: %s", embedding_config)
 
     def search_index(
@@ -394,11 +380,9 @@ class EmbeddingHandler:
         """Returns the current embedding configuration as a dictionary."""
         return {
             "embedding_model_name": str(embedding_config["embedding_model_name"]),
-            "llm_model_name": str(embedding_config["llm_model_name"]),
             "db_dir": str(embedding_config["db_dir"]),
             "soc_index": str(embedding_config["soc_index"]),
             "soc_structure": str(embedding_config["soc_structure"]),
-            "soc_condensed": str(embedding_config["soc_condensed"]),
             "matches": embedding_config["matches"],
             "index_size": embedding_config["index_size"],
         }
