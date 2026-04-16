@@ -17,12 +17,10 @@ class LLMConfig(TypedDict):
     the vector store.
 
     Attributes:
-        llm_model_name (str): Name of the language model.
         embedding_model_name (str): Name of the embedding model.
         db_dir (str): Directory for the database.
     """
 
-    llm_model_name: str
     embedding_model_name: str
     db_dir: str
 
@@ -33,12 +31,10 @@ class LookupsConfig(TypedDict):
     Attributes:
         soc_index (tuple[str, str]): Path to the SOC index file.
         soc_structure (tuple[str, str]): Path to the SOC structure file.
-        soc_condensed (tuple[str, str]): Path to the condensed SOC file.
     """
 
     soc_index: tuple[str, str]
     soc_structure: tuple[str, str]
-    soc_condensed: tuple[str, str]
 
 
 class FullConfig(TypedDict):
