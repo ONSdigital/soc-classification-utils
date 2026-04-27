@@ -7296,13 +7296,13 @@ files = [
 
 [[package]]
 name = "soc-classification-library"
-version = "0.1.6"
+version = "0.1.5"
 description = "Standard Occupational Classification library"
 optional = false
 python-versions = "^3.12"
 groups = ["main"]
 files = []
-develop = true
+develop = false
 
 [package.dependencies]
 openpyxl = "^3.1.5"
@@ -7312,8 +7312,10 @@ pyprojroot = "^0.3.0"
 toml = "^0.10.2"
 
 [package.source]
-type = "directory"
-url = "../soc-classification-library"
+type = "git"
+url = "https://github.com/ONSdigital/soc-classification-library.git"
+reference = "v0.1.5"
+resolved_reference = "28e8fb0bb03a7eb492f0453c9e63a73bf45093a0"
 
 [[package]]
 name = "sqlalchemy"
@@ -8746,4 +8748,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "0d0325afe1fd1c94c356bc8e44bd212b15a270b51b91844d27fdec0408471698"
+content-hash = "590e027329cc8e1e118b2742db0e8cd8747f955155c5ea39a2eeb8b3a6e33e87"
