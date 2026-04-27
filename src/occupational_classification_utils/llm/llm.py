@@ -16,7 +16,6 @@ Functions:
 """
 
 from collections import defaultdict
-from functools import lru_cache
 from typing import Any, Optional, Union
 
 import numpy as np
@@ -30,11 +29,15 @@ from survey_assist_utils.logging import get_logger
 
 from occupational_classification_utils.embed.embedding import get_config
 from occupational_classification_utils.llm.prompt import (
+    CORRECT_SPELLING_PROMPT,
     FIX_PARSING_PROMPT,
     SA_SOC_PROMPT_RAG,
     SOC_PROMPT_PYDANTIC,
 )
-from occupational_classification_utils.models.response_model import SocResponse
+from occupational_classification_utils.models.response_model import (
+    SocResponse,
+    Spelling,
+)
 from occupational_classification_utils.utils.soc_data_access import (
     get_soc_meta,
     load_soc_hierarchy,
@@ -102,19 +105,31 @@ class ClassificationLLM:
         self.soc_meta = get_soc_meta(config["lookups"]["soc_structure"])
         self.soc_prompt = SOC_PROMPT_PYDANTIC
         self.sa_soc_prompt_rag = SA_SOC_PROMPT_RAG
+        self.correct_spelling = CORRECT_SPELLING_PROMPT
         self.soc: Optional[SOC] = None
         self.verbose = verbose
 
-    @lru_cache  # noqa: B019
+    # @lru_cache
     async def get_soc_code(
         self,
         job_title: str,
+        code_digits: int = 4,
+        candidates_limit: int = 5,
+        short_list: Optional[list[dict[Any, Any]]] = None,
     ) -> SocResponse:
         """Generates a SOC classification based on respondent's data
         using the full SOC index embedded in the query (mirror SIC one-shot).
 
         Args:
             job_title (str): The title of the job.
+            short_list (list[dict[Any, Any]], optional): A list of results from
+                embedding or vector store search (e.g. from soc-classification-vector-store).
+                Each dict should have "code" and "title" keys. When provided, the
+                embedding handler is not used.
+            code_digits (int, optional): The number of digits to consider from
+                the code for filtering candidates. Defaults to 4.
+            candidates_limit (int, optional): The maximum number of candidates
+                to include in the prompt. Defaults to 5.
 
         Returns:
             SocResponse: The generated response to the query.
@@ -123,11 +138,33 @@ class ClassificationLLM:
             ValueError: If there is an error parsing the response from the LLM model.
 
         """
+        if short_list is None:
+            raise ValueError(
+                "Short list is None - list provided from embedding search."
+            )
+        soc_codes = self._prompt_candidate_list(
+            short_list, code_digits=code_digits, candidates_limit=candidates_limit
+        )
+
+        def prep_call_dict(job_title, soc_codes):
+            # Helper function to prepare the call dictionary
+            is_job_title_present = job_title is None or job_title in {"", " "}
+            job_title = "Unknown" if is_job_title_present else job_title
+
+            call_dict = {
+                "job_title": job_title,
+                "soc_index": soc_codes,
+            }
+            return call_dict
+
+        call_dict = prep_call_dict(
+            job_title=job_title,
+            soc_codes=soc_codes,
+        )
+
         chain = self.soc_prompt | self.llm
         response = await chain.ainvoke(
-            {
-                "job_title": job_title,
-            },
+            call_dict,
             return_only_outputs=True,
         )
         if self.verbose:
@@ -254,12 +291,13 @@ class ClassificationLLM:
                     f"{len(soc_candidates)} to {nn}"
                 )
                 soc_candidates = soc_candidates[:nn]
-
         return "\n".join(soc_candidates)
 
     async def sa_rag_soc_code(  # noqa: PLR0913
         self,
+        industry_descr: str,
         job_title: Optional[str] = None,
+        job_description: Optional[str] = None,
         expand_search_terms: bool = True,
         code_digits: int = 4,
         candidates_limit: int = 5,
@@ -274,6 +312,7 @@ class ClassificationLLM:
         Args:
             industry_descr (str): The description of the industry.
             job_title (str, optional): The job title. Defaults to None.
+            job_description (str, optional): The job description. Defaults to None.
             expand_search_terms (bool, optional): Kept for API compatibility;
                 unused (short_list is required from caller). Defaults to True.
             code_digits (int, optional): The number of digits in the generated
@@ -295,13 +334,23 @@ class ClassificationLLM:
         """
         _ = expand_search_terms  # API compatibility; unused when short_list required
 
-        def prep_call_dict(job_title, soc_codes):
+        def prep_call_dict(industry_descr, job_title, job_description, soc_codes):
             # Helper function to prepare the call dictionary
             is_job_title_present = job_title is None or job_title in {"", " "}
             job_title = "Unknown" if is_job_title_present else job_title
 
+            is_job_description_present = job_description is None or job_description in {
+                "",
+                " ",
+            }
+            job_description = (
+                "Unknown" if is_job_description_present else job_description
+            )
+
             call_dict = {
+                "industry_descr": industry_descr,
                 "job_title": job_title,
+                "job_description": job_description,
                 "soc_index": soc_codes,
             }
             return call_dict
@@ -316,7 +365,9 @@ class ClassificationLLM:
         )
 
         call_dict = prep_call_dict(
+            industry_descr=industry_descr,
             job_title=job_title,
+            job_description=job_description,
             soc_codes=soc_codes,
         )
 
@@ -385,3 +436,65 @@ class ClassificationLLM:
                 )
 
         return validated_answer, short_list, call_dict
+
+    async def clean_spelling(
+        self, misspelled_string: str, abbreviation_dictionary: dict
+    ):
+        """Corrects spelling mistakes from the string. Follows SOC coding index abbreviations.
+
+        Args:
+            misspelled_string (str): A string that potentially has been misspelled.
+            abbreviation_dictionary (dict): A dictionary containing approved abbreviations
+            comonly used in SOC.
+
+        Return:
+            str: corrected spelling, following SOC coding index rules.
+        """
+        call_dict = {
+            "job_title": misspelled_string,
+            "abbreviations": abbreviation_dictionary,
+        }
+
+        chain = self.correct_spelling | self.llm
+
+        try:
+            response = await chain.ainvoke(
+                call_dict,
+                return_only_outputs=True,
+            )
+        except ValueError as err:
+            logger.error(f"Error from chain, exit early: {err}", error=str(err))
+            validated_answer = Spelling(
+                job_title_spelling="",
+            )
+            return validated_answer
+
+        if self.verbose:
+            logger.debug(f"LLM response: {response}")
+        # Parse the output to desired format with one retry
+        parser = PydanticOutputParser(  # type: ignore # Suspect langchain ver bug
+            pydantic_object=Spelling,
+        )
+
+        try:
+            chain = FIX_PARSING_PROMPT | self.llm
+            response = await chain.ainvoke(
+                {
+                    "llm_output": str(response.content),
+                    "format_instructions": parser.get_format_instructions(),
+                },
+                return_only_outputs=True,
+            )
+            validated_answer_sr = parser.parse(str(response.content))
+            logger.debug("Successfully parsed reformatted response.")
+        except (ValueError, AttributeError) as parse_error2:
+            logger.error(
+                f"Failed to parse response again: {parse_error2}",
+                error=str(parse_error2),
+            )
+            logger.warning(
+                "Failed to parse response again",
+                response_content=str(response.content),
+            )
+
+        return validated_answer_sr
