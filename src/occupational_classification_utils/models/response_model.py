@@ -19,7 +19,7 @@ Constants:
 
 from typing import Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 
 class SocCandidate(BaseModel):
@@ -80,12 +80,15 @@ class SocResponse(BaseModel):
         default=None,
     )
     soc_code: Optional[str] = Field(
-        description="""Full four digit SOC code assigned based on provided job title. Empty if codable=False.""",
+        description="""Full four digit SOC code assigned based on provided job title.
+        Empty if codable=False.""",
         default=None,
     )
     soc_candidates: list[SocCandidate] = Field(
         description="""List of possible or alternative SOC codes that may be applicable
         with their descriptive label and estimated likelihood. Not more than 10 candidates.""",
+        # min_length=1,  # Ensure there's always at least one candidate
+        # max_length=10,  # Limit to less than 10 candidates
     )
     reasoning: str = Field(
         description="""Step by step reasoning behind classification selected. Specifies
@@ -110,29 +113,29 @@ class SocResponse(BaseModel):
             raise ValueError("If codable, then valid soc_code needs to be provided")
         return v
 
-    @model_validator(mode="before")
-    @classmethod
-    def check_valid_fields(cls, values):
-        """Validates the fields of the model before instantiation.
+    # @model_validator(mode="before")
+    # @classmethod
+    # def check_valid_fields(cls, values):
+    #     """Validates the fields of the model before instantiation.
 
-        Ensures that:
-        - If `codable` is True, a valid `soc_code` is provided.
-        - If `codable` is False, a follow-up question is provided.
+    #     Ensures that:
+    #     - If `codable` is True, a valid `soc_code` is provided.
+    #     - If `codable` is False, a follow-up question is provided.
 
-        Args:
-            values (dict): The dictionary of field values.
+    #     Args:
+    #         values (dict): The dictionary of field values.
 
-        Returns:
-            dict: The validated field values.
+    #     Returns:
+    #         dict: The validated field values.
 
-        Raises:
-            ValueError: If validation conditions are not met.
-        """
-        if values.get("codable"):
-            cls.soc_code_validator(values.get("soc_code"))
-        elif not values.get("followup"):  # This checks for None or empty string
-            raise ValueError("If uncodable, a follow-up question needs to be provided.")
-        return values
+    #     Raises:
+    #         ValueError: If validation conditions are not met.
+    #     """
+    #     if values.get("codable"):
+    #         cls.soc_code_validator(values.get("soc_code"))
+    #     elif not values.get("followup"):  # This checks for None or empty string
+    #         raise ValueError("If uncodable, a follow-up question needs to be provided.")
+    #     return values
 
 
 class RagCandidate(BaseModel):
@@ -257,3 +260,9 @@ class SurveyAssistSocResponse(BaseModel):
         selected. Specifies the information used to assign the SOC code or any
         additional information required to assign a SOC code.""",
     )
+
+
+class Spelling(BaseModel):
+    """Represents a correct spelling of a job title."""
+
+    job_title_spelling: str = Field(description="Job title with correct spelling.")

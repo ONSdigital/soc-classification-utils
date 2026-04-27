@@ -52,7 +52,7 @@ needed to determine it. Make sure to use the provided 2020 SOC index.
 ===Output Format===
 {format_instructions}
 
-===2020 SOC Index===
+===Relevant subset of UK SOC 2020===
 {soc_index}
 """
 
@@ -110,6 +110,7 @@ SA_SOC_PROMPT_RAG = PromptTemplate.from_template(
     template=_core_prompt + _sa_soc_template_rag,
     partial_variables={
         "format_instructions": parser.get_format_instructions(),
+        "soc_index": soc_index,
     },
 )
 
@@ -156,4 +157,17 @@ If the output is not valid JSON, you must fix it without altering the intended m
 ===Output Format===
 {format_instructions}
 """
+)
+
+
+CORRECT_SPELLING_PROMPT = PromptTemplate.from_template(
+    """Correct spelling of this job title: {job_title}
+
+    Accepted abbreviations and their meaning in a dictionary format: {abbreviations}
+    Do not replace abbreviations. Use the dictionary only to correct the misspelled job titles.
+    If the original job title contains an abbreviation, check if the meaning is correct,
+    but do not replace the abbreviation.
+
+    If there is no need to correct the spelling, return the original job title.
+    """
 )
