@@ -80,6 +80,9 @@ target/
 # Disallow notebooks
 *.ipynb 
 
+# ignore data files
+*.csv
+
 # Excel datafiles & workbooks & macros
 *.xlsx
 *.xls
