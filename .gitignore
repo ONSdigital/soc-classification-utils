@@ -82,6 +82,8 @@ target/
 
 # ignore data files
 *.csv
+*.parquet
+*.json
 
 # Excel datafiles & workbooks & macros
 *.xlsx
