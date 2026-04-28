@@ -14,7 +14,6 @@ from occupational_classification_utils.llm.llm import ClassificationLLM
 knowledge_bucket = dotenv.get_key(".env", "KNOWLEDGE_BUCKET")
 
 output_folder = "notebooks/ashe_data_cleaning"
-# output_folder = f"notebooks/sample"
 file_name = "_2026_04_20"
 
 soc_coding_index_file = (
@@ -103,7 +102,7 @@ soc_abb_dict = soc_abb.set_index("Abbreviation")["Meaning"].to_dict()
 
 ### Remove duplicates ###
 data["documents"] = data["documents"].str.strip()  # Remove leading space
-data = data.drop_duplicates(subset="documents")  # remove duplicates
+data = data.drop_duplicates(subset='documents', keep='last')  # remove duplicates
 
 ### Add column for correct spelling ###
 if "corrected_spelling" not in data:
@@ -122,13 +121,14 @@ titles_list = titles_list.to_list()
 
 not_in_list = data[~data["documents"].isin(titles_list)].reset_index(
     drop=True
-)  # those are things that didn't come from soc_list
+)  # those are titles that didn't appear in soc_list
 in_list = data[data["documents"].isin(titles_list)].reset_index(
     drop=True
-)  # those are things that didn't come from soc_list
+)  # those are titles that came from soc_list
 
 # save the subset of titles that are repeated from SOC index
 in_list.to_csv(f"{output_folder}/ashe_in_soc_index{file_name}.csv")
+
 # in_list.to_parquet(f"{output_folder}/ashe_in_soc_index{file_name}.parquet")
 print("ASHE IN SOC SAVED.")
 
@@ -187,7 +187,6 @@ async def split_in_batches(df: pd.DataFrame):
             df.loc[current_row, "corrected_spelling"] = llm_response
 
         df.to_csv(f"{output_folder}/ashe_correct_spelling{file_name}.csv")
-        df.to_parquet(f"{output_folder}/ashe_correct_spelling{file_name}.parquet")
 
         json_data = {
             "completed_batches": current_batch_id,
@@ -202,19 +201,15 @@ async def split_in_batches(df: pd.DataFrame):
 
         if current_batch_id + 1 == final_batch:
             df = df.drop_duplicates(
-                subset="corrected_spelling"
+                subset=['corrected_spelling', 'label'],
+                keep='last'
             )  # remove duplicates in the corrected spelling
 
             df.to_csv(f"{output_folder}/ashe_correct_spelling{file_name}.csv")
-            df.to_parquet(f"{output_folder}/ashe_correct_spelling{file_name}.parquet")
 
             # df.to_csv(f"{knowledge_bucket}soc_knowledgebase_clean{file_name}.csv")
-            # df.to_parquet(f"{knowledge_bucket}soc_knowledgebase_clean{file_name}.parquet")
 
             print("SAVED TO BUCKET")
 
 
 asyncio.run(split_in_batches(not_in_list))
-# data_sample =  data[:55]
-# asyncio.run(split_in_batches(data_sample))
-# print(data_sample)
