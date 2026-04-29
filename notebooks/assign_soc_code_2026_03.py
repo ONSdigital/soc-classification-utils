@@ -2,24 +2,26 @@
 import asyncio
 import json
 import math
+import os
 
 import dotenv
 import pandas as pd
-from occupational_classification.data_access.soc_data_access import combine_job_title
 
+from occupational_classification.data_access.soc_data_access import combine_job_title
 from occupational_classification_utils.llm.llm import ClassificationLLM
 
 ### Constants ###
 knowledge_bucket = dotenv.get_key(".env", "KNOWLEDGE_BUCKET")
 
-output_folder = "notebooks/ashe_data_cleaning"
-file_name = "ashe_in_soc_index"
-# file_name = "ashe_correct_spelling"
+output_folder = "notebooks/soc_data"
+# file_name = "ashe_in_soc_index"
+file_name = "ashe_correct_spelling"
 input_file_name = "_2026_04_20"
-output_file_name = "_llm_soc_codes_framework_2026_04_23"
-# JOB_TITLE_COLUMN = "corrected_spelling"
-JOB_TITLE_COLUMN = "documents"
+output_file_name = "_llm_soc_codes_index_2026_04_29"
+JOB_TITLE_COLUMN = "corrected_spelling"
+# JOB_TITLE_COLUMN = "documents"
 CODE_COLUMN = "label"
+BATCH_SIZE = 10
 
 ### Initiate llm connection ###
 c_llm = ClassificationLLM("gemini-2.5-flash", verbose=False)
@@ -31,18 +33,19 @@ try:
     print("Database loaded from local.")
 except FileNotFoundError:
     print("KNOWLEDGE_BUCKET not found in .env file. Please set it.")
-    data = pd.read_csv(f"{knowledge_bucket}ASHE_classifai_soc_kb.csv")
+    data = pd.read_csv(f"{knowledge_bucket}{file_name}{input_file_name}.csv")
     print("Database loaded from storage.")
 
 try:
     with open(
-        f"{output_folder}/{file_name}{input_file_name}.json", encoding="utf-8"
+        f"{output_folder}/{file_name}{output_file_name}.json", encoding="utf-8"
     ) as file:
         recent_batch_id = json.load(file)["completed_batches"]
 except FileNotFoundError:
     recent_batch_id = 0
+
 print(
-    f"STARTING FROM {recent_batch_id} batch (row {recent_batch_id * 10} out of {len(data)})."
+    f"STARTING FROM {recent_batch_id} batch (row {recent_batch_id * BATCH_SIZE} out of {len(data)})."
 )
 
 
@@ -142,18 +145,18 @@ async def run_soc_code(jt: str):
 
 
 async def batching(job_titles_column: pd.Series, batch_id: int):
-    """Takes next batch from the dataset of size 10.
+    """Takes next batch from the dataset of specified size.
 
     Args:
         job_titles_column (pd.Series): A coulmn with job titles.
         batch_id (int): number of the batch.
 
     Returns:
-        job_titles_column: snippet of the data provided of size 10.
+        job_titles_column: snippet of the data provided of specified size.
     """
     batch = batch_id
-    start_id = batch * 10
-    end_id = batch * 10 + 10
+    start_id = batch * BATCH_SIZE
+    end_id = batch * BATCH_SIZE + BATCH_SIZE
     return job_titles_column[start_id:end_id].copy()
 
 
@@ -178,7 +181,7 @@ async def split_in_batches(document: pd.DataFrame):
         document["reasoning"] = None
         document["reasoning"] = document["reasoning"].astype(str)
 
-    final_batch = math.ceil(len(document) / 10)  # get the amount of batches
+    final_batch = math.ceil(len(document) / BATCH_SIZE)  # get the amount of batches
 
     for current_batch_id in range(recent_batch_id, final_batch):
 
@@ -186,9 +189,7 @@ async def split_in_batches(document: pd.DataFrame):
 
         current_batch = await batching(
             document[JOB_TITLE_COLUMN], current_batch_id
-        )  # does it have to be async?
-
-        # k = 0
+        )
 
         tasks = [run_soc_code(jt) for jt in current_batch]
         responses = await asyncio.gather(*tasks)
@@ -199,18 +200,38 @@ async def split_in_batches(document: pd.DataFrame):
             soc_candidates = llm_response.soc_candidates
             reasoning = llm_response.reasoning
 
-            current_row = 10 * current_batch_id + k
+            current_row = BATCH_SIZE * current_batch_id + k
             document.at[current_row, "codable"] = codable
             document.at[current_row, "llm_soc_code"] = soc_code
             document.at[current_row, "llm_soc_candidates"] = soc_candidates
             document.at[current_row, "reasoning"] = reasoning
 
-        document.to_csv(f"{output_folder}/{file_name}{output_file_name}.csv")
-        # document.to_parquet(f"{output_folder}/{file_name}{output_file_name}.parquet")
+        start_row = current_batch_id * BATCH_SIZE
+        end_row = start_row + BATCH_SIZE
+
+        rows_to_save = document.iloc[start_row:end_row][[
+            'documents',
+            'label',
+            'corrected_spelling',
+            'codable',
+            'llm_soc_code',
+            'llm_soc_candidates',
+            'reasoning'
+            ]]
+
+
+        # document.to_csv(f"{output_folder}/{file_name}{output_file_name}.csv")
+
+        rows_to_save.to_csv(
+            f"{output_folder}/{file_name}{output_file_name}.csv",
+            mode='a',
+            header=False,
+            index=False,
+        )
 
         # pylint: disable=R0801
         json_data = {
-            "completed_batches": current_batch_id,
+            "completed_batches": current_batch_id + 1,
         }
         with open(
             f"{output_folder}/{file_name}{output_file_name}.json", "w", encoding="utf8"
@@ -220,14 +241,24 @@ async def split_in_batches(document: pd.DataFrame):
                 json_file,
             )
 
-        if current_batch_id + 1 == final_batch:
-            document.to_csv(
-                f"{knowledge_bucket}wip_data/{file_name}{output_file_name}.csv"
-            )
-            print("SAVED TO BUCKET")
+        # if current_batch_id + 1 == final_batch:
+        #     document.to_csv(
+        #         f"{knowledge_bucket}wip_data/{file_name}{output_file_name}.csv"
+        #     )
+        #     print("SAVED TO BUCKET")
 
+
+
+if not os.path.exists(f"{output_folder}/{file_name}{output_file_name}.csv"):
+    all_columns = [
+            'documents',
+            'label',
+            'corrected_spelling',
+            'codable',
+            'llm_soc_code',
+            'llm_soc_candidates',
+            'reasoning'
+            ]
+    pd.DataFrame(columns=all_columns).to_csv(f"{output_folder}/{file_name}{output_file_name}.csv", index=False)
 
 asyncio.run(split_in_batches(data))
-# asyncio.run(split_in_batches(data_sample))
-# print(data_sample)
-# print(data_sample["codable"].value_counts())
