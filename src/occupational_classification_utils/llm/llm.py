@@ -496,5 +496,8 @@ class ClassificationLLM:
                 "Failed to parse response again",
                 response_content=str(response.content),
             )
+            validated_answer_sr = Spelling(
+                job_title_spelling="",
+            )
 
         return validated_answer_sr
