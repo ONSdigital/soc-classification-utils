@@ -14,7 +14,8 @@ from occupational_classification_utils.llm.llm import ClassificationLLM
 knowledge_bucket = dotenv.get_key(".env", "KNOWLEDGE_BUCKET")
 
 output_folder = "notebooks/ashe_data_cleaning"
-file_name = "_2026_04_20"
+file_prefix = "soc_index_spellcheck"
+file_suffix = "_2026_04_28"
 
 soc_coding_index_file = (
     f"{knowledge_bucket}soc2020volume2thecodingindexexcel03122025.xlsx"
@@ -24,9 +25,11 @@ c_llm = ClassificationLLM("gemini-2.5-flash", verbose=False)
 
 ### Access data ###
 try:
-    data = pd.read_csv(f"{output_folder}/soc_knowledgebase{file_name}.csv")
+    data = pd.read_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv")
 
-    with open(f"{output_folder}/checkpoint{file_name}.json", encoding="utf-8") as file:
+    with open(
+        f"{output_folder}/checkpoint_{file_prefix}{file_suffix}.json", encoding="utf-8"
+    ) as file:
         recent_batch_id = json.load(file)["completed_batches"]
 
     print("Database loaded from local.")
@@ -102,7 +105,7 @@ soc_abb_dict = soc_abb.set_index("Abbreviation")["Meaning"].to_dict()
 
 ### Remove duplicates ###
 data["documents"] = data["documents"].str.strip()  # Remove leading space
-data = data.drop_duplicates(subset='documents', keep='last')  # remove duplicates
+data = data.drop_duplicates(subset="documents", keep="last")  # remove duplicates
 
 ### Add column for correct spelling ###
 if "corrected_spelling" not in data:
@@ -127,9 +130,8 @@ in_list = data[data["documents"].isin(titles_list)].reset_index(
 )  # those are titles that came from soc_list
 
 # save the subset of titles that are repeated from SOC index
-in_list.to_csv(f"{output_folder}/ashe_in_soc_index{file_name}.csv")
+in_list.to_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv")
 
-# in_list.to_parquet(f"{output_folder}/ashe_in_soc_index{file_name}.parquet")
 print("ASHE IN SOC SAVED.")
 
 
@@ -186,13 +188,15 @@ async def split_in_batches(df: pd.DataFrame):
             current_row = 10 * current_batch_id + k
             df.loc[current_row, "corrected_spelling"] = llm_response
 
-        df.to_csv(f"{output_folder}/ashe_correct_spelling{file_name}.csv")
+        df.to_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv")
 
         json_data = {
             "completed_batches": current_batch_id,
         }
         with open(
-            f"{output_folder}/checkpoint{file_name}.json", "w", encoding="utf8"
+            f"{output_folder}/checkpoint_{file_prefix}{file_suffix}.json",
+            "w",
+            encoding="utf8",
         ) as json_file:
             json.dump(
                 json_data,
@@ -201,15 +205,15 @@ async def split_in_batches(df: pd.DataFrame):
 
         if current_batch_id + 1 == final_batch:
             df = df.drop_duplicates(
-                subset=['corrected_spelling', 'label'],
-                keep='last'
+                subset=["corrected_spelling", "label"], keep="last"
             )  # remove duplicates in the corrected spelling
 
-            df.to_csv(f"{output_folder}/ashe_correct_spelling{file_name}.csv")
+            df.to_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv")
+            print("FILE SAVED TO LOCAL")
 
-            # df.to_csv(f"{knowledge_bucket}soc_knowledgebase_clean{file_name}.csv")
+            # df.to_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv")
+            # print("SAVED TO BUCKET")
 
-            print("SAVED TO BUCKET")
 
-
-asyncio.run(split_in_batches(not_in_list))
+# asyncio.run(split_in_batches(not_in_list))
+asyncio.run(split_in_batches(in_list))

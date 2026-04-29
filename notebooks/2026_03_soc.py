@@ -18,8 +18,8 @@ file_name = "ashe_in_soc_index"
 input_file_name = "_2026_04_20"
 output_file_name = "_llm_soc_codes_framework_2026_04_23"
 # JOB_TITLE_COLUMN = "corrected_spelling"
-JOB_TITLE_COLUMN = 'documents'
-CODE_COLUMN = 'label'
+JOB_TITLE_COLUMN = "documents"
+CODE_COLUMN = "label"
 
 ### Initiate llm connection ###
 c_llm = ClassificationLLM("gemini-2.5-flash", verbose=False)
@@ -125,7 +125,7 @@ s_list = s_list[s_list["code"].notna()]
 if isinstance(s_list, pd.DataFrame):
     s_list = s_list.to_dict(orient="records")
 
-data = data.drop_duplicates(subset=[JOB_TITLE_COLUMN, CODE_COLUMN], keep='last')
+data = data.drop_duplicates(subset=[JOB_TITLE_COLUMN, CODE_COLUMN], keep="last")
 
 
 async def run_soc_code(jt: str):
