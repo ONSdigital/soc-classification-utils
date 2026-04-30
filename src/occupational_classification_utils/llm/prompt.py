@@ -56,7 +56,7 @@ Codes must come from the list provided below.
 ===Output Format===
 {format_instructions}
 
-===UK SOC 2020 codes===
+===Codes with titles===
 {soc_index}
 """
 
