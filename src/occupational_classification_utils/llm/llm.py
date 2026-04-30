@@ -113,9 +113,10 @@ class ClassificationLLM:
     async def get_soc_code(
         self,
         job_title: str,
+        # soc_codes: list,
         code_digits: int = 4,
         candidates_limit: int = 5,
-        short_list: Optional[list[dict[Any, Any]]] = None,
+        # short_list: Optional[list[dict[Any, Any]]] = None,
     ) -> SocResponse:
         """Generates a SOC classification based on respondent's data
         using the full SOC index embedded in the query (mirror SIC one-shot).
@@ -138,28 +139,28 @@ class ClassificationLLM:
             ValueError: If there is an error parsing the response from the LLM model.
 
         """
-        if short_list is None:
-            raise ValueError(
-                "Short list is None - list provided from embedding search."
-            )
-        soc_codes = self._prompt_candidate_list(
-            short_list, code_digits=code_digits, candidates_limit=candidates_limit
-        )
+        # if short_list is None:
+        #     raise ValueError(
+        #         "Short list is None - list provided from embedding search."
+        #     )
+        # soc_codes = self._prompt_candidate_list(
+        #     short_list, code_digits=code_digits, candidates_limit=candidates_limit
+        # )
 
-        def prep_call_dict(job_title, soc_codes):
+        def prep_call_dict(job_title):#, soc_codes):
             # Helper function to prepare the call dictionary
             is_job_title_present = job_title is None or job_title in {"", " "}
             job_title = "Unknown" if is_job_title_present else job_title
 
             call_dict = {
                 "job_title": job_title,
-                "soc_index": soc_codes,
+                # "soc_index": soc_codes,
             }
             return call_dict
 
         call_dict = prep_call_dict(
             job_title=job_title,
-            soc_codes=soc_codes,
+            # soc_codes=soc_codes,
         )
 
         chain = self.soc_prompt | self.llm

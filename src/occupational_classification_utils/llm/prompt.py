@@ -30,9 +30,13 @@ from occupational_classification_utils.models.response_model import (
     RagResponse,
     SocResponse,
 )
-from occupational_classification_utils.utils.soc_data_access import (
-    load_soc_index,
-)
+# from occupational_classification_utils.utils.soc_data_access import (
+#     load_soc_index,
+# )
+
+from occupational_classification.data_access.soc_data_access import combine_job_title
+import dotenv
+import pandas as pd
 
 config = get_config()
 
@@ -61,7 +65,52 @@ Codes must come from the list provided below.
 """
 
 # Load the full SOC index from the configuration (mirror SIC: full index into one-shot prompt)
-soc_index = load_soc_index(config["lookups"]["soc_index"])
+# soc_index = load_soc_index(config["lookups"]["soc_index"])
+
+
+
+def load_soc_framework(filepath: str) -> pd.DataFrame:
+    """Load SOC structure.
+
+    Provides structure with all levels and names of the SOC 2020.
+
+    Args:
+        filepath (str): A path to the file containing SOC Structure.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing group code, group title,
+        group description, typical entry routes and associated qualifications,
+        and list of tasks.
+    """
+    soc_df = pd.read_excel(
+        filepath,
+        sheet_name="SOC2020 framework",
+        usecols=[
+            "SOC2020 Unit Group",
+            "SOC2020 Group Title",
+        ],
+        dtype=str,
+    )
+    soc_df.columns = [
+        col.lower().replace(" ", "_").replace("__", "_").replace("\n", "")
+        for col in soc_df.columns
+    ]
+    soc_df = soc_df.rename(
+        columns={"soc2020_unit_group": "code", "soc2020_group_title": "title"}
+    )
+
+    for col in soc_df.columns:
+        soc_df[col] = soc_df[col].str.strip()
+
+    return soc_df
+
+knowledge_bucket = dotenv.get_key(".env", "KNOWLEDGE_BUCKET")
+soc_index = load_soc_framework(
+    f"{knowledge_bucket}soc2020volume2thecodingindexexcel03122025.xlsx"
+)
+
+
+
 
 parser = PydanticOutputParser(  # type: ignore # Suspect langchain ver bug
     pydantic_object=SocResponse
@@ -71,7 +120,7 @@ SOC_PROMPT_PYDANTIC = PromptTemplate.from_template(
     template=_core_prompt + _soc_template,
     partial_variables={
         "format_instructions": parser.get_format_instructions(),
-        # "soc_index": soc_index,
+        "soc_index": soc_index,
     },
 )
 
