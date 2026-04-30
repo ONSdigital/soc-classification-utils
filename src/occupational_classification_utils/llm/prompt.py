@@ -44,14 +44,10 @@ _core_prompt = """You are a conscientious classification assistant of respondent
 for the use in the UK official statistics. Respondent data may be in English or Welsh,
 but you always respond in British English."""
 
-_soc_template = """"Given the respondent job title your task is to determine code for this job,
-that have the same meaning as the job title provided. Select codes strictly from the list provided.
-
-If the code cannot be determined, identify the additional information needed to determine it.
-
-You must return the subset list of possible codes.
-
-Codes must come from the list provided below.
+_soc_template = """"Given the respondent job title your task is to determine
+the UK SOC (Standard Occupational Classification) code for this job.
+If the code cannot be determined, identify the additional information
+needed to determine it. Make sure to use the provided 2020 SOC index.
 
 ===Respondent Data===
 - Job Title: {job_title}
@@ -60,7 +56,7 @@ Codes must come from the list provided below.
 ===Output Format===
 {format_instructions}
 
-===Codes with titles===
+===Relevant subset of UK SOC 2020===
 {soc_index}
 """
 
