@@ -41,7 +41,7 @@ for the use in the UK official statistics. Respondent data may be in English or 
 but you always respond in British English."""
 
 _soc_template = """"Given the respondent job title your task is to determine code for this job,
-selecting strictly from the list of codes provided, matching the job title with a description of the code.
+that have the same meaning as the job title provided. Select codes strictly from the list provided.
 
 If the code cannot be determined, identify the additional information needed to determine it.
 
