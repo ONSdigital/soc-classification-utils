@@ -45,9 +45,9 @@ for the use in the UK official statistics. Respondent data may be in English or 
 but you always respond in British English."""
 
 _soc_template = """"Given the respondent job title your task is to determine
-the UK SOC (Standard Occupational Classification) code for this job.
+code for this job.
 If the code cannot be determined, identify the additional information
-needed to determine it. Make sure to use the provided 2020 SOC index.
+needed to determine it. Make sure to use the provided coding index.
 
 ===Respondent Data===
 - Job Title: {job_title}
@@ -56,7 +56,7 @@ needed to determine it. Make sure to use the provided 2020 SOC index.
 ===Output Format===
 {format_instructions}
 
-===Relevant subset of UK SOC 2020===
+===Relevant coding index===
 {soc_index}
 """
 
