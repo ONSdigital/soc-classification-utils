@@ -40,10 +40,14 @@ _core_prompt = """You are a conscientious classification assistant of respondent
 for the use in the UK official statistics. Respondent data may be in English or Welsh,
 but you always respond in British English."""
 
-_soc_template = """"Given the respondent job title your task is to determine
-the UK SOC (Standard Occupational Classification) code for this job.
+_soc_template = """"Given the respondent job title your task is to determine the UK SOC
+(Standard Occupational Classification) code for this job strictly from the list of codes provided.
 If the code cannot be determined, identify the additional information
-needed to determine it. Make sure to use the provided 2020 SOC index.
+needed to determine it.
+
+You must return the subset list of possible soc codes (UK SOC 2020 codes provided).
+
+SOC codes must come from the list provided below.
 
 ===Respondent Data===
 - Job Title: {job_title}
@@ -52,7 +56,7 @@ needed to determine it. Make sure to use the provided 2020 SOC index.
 ===Output Format===
 {format_instructions}
 
-===Relevant subset of UK SOC 2020===
+===UK SOC 2020 codes===
 {soc_index}
 """
 
@@ -67,7 +71,7 @@ SOC_PROMPT_PYDANTIC = PromptTemplate.from_template(
     template=_core_prompt + _soc_template,
     partial_variables={
         "format_instructions": parser.get_format_instructions(),
-        "soc_index": soc_index,
+        # "soc_index": soc_index,
     },
 )
 
@@ -110,7 +114,7 @@ SA_SOC_PROMPT_RAG = PromptTemplate.from_template(
     template=_core_prompt + _sa_soc_template_rag,
     partial_variables={
         "format_instructions": parser.get_format_instructions(),
-        "soc_index": soc_index,
+        # "soc_index": soc_index,
     },
 )
 
