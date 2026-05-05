@@ -195,9 +195,10 @@ async def split_in_batches(df: pd.DataFrame):
         start_row = current_batch_id * BATCH_SIZE
 
         rows_to_save = df.iloc[start_row : start_row + BATCH_SIZE][
-            ["documents",
-            "label",
-            "corrected_spelling",
+            [
+                "documents",
+                "label",
+                "corrected_spelling",
             ]
         ]
 
