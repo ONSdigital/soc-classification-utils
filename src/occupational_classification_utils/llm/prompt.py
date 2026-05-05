@@ -22,6 +22,8 @@ Attributes:
 
 # pylint: disable=invalid-name # Need to clean up the code to remove this
 
+import dotenv
+import pandas as pd
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts.prompt import PromptTemplate
 
@@ -30,13 +32,11 @@ from occupational_classification_utils.models.response_model import (
     RagResponse,
     SocResponse,
 )
+
 # from occupational_classification_utils.utils.soc_data_access import (
 #     load_soc_index,
 # )
 
-from occupational_classification.data_access.soc_data_access import combine_job_title
-import dotenv
-import pandas as pd
 
 config = get_config()
 
@@ -63,7 +63,6 @@ The codes you assign MUST appear in the provided 2020 SOC index.
 
 # Load the full SOC index from the configuration (mirror SIC: full index into one-shot prompt)
 # soc_index = load_soc_index(config["lookups"]["soc_index"])
-
 
 
 def load_soc_framework(filepath: str) -> pd.DataFrame:
@@ -101,12 +100,11 @@ def load_soc_framework(filepath: str) -> pd.DataFrame:
 
     return soc_df
 
+
 knowledge_bucket = dotenv.get_key(".env", "KNOWLEDGE_BUCKET")
 soc_index = load_soc_framework(
     f"{knowledge_bucket}soc2020volume2thecodingindexexcel03122025.xlsx"
 )
-
-
 
 
 parser = PydanticOutputParser(  # type: ignore # Suspect langchain ver bug
