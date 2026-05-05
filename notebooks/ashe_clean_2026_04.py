@@ -3,6 +3,7 @@
 import asyncio
 import json
 import math
+import os
 
 import dotenv
 import pandas as pd
@@ -13,9 +14,11 @@ from occupational_classification_utils.llm.llm import ClassificationLLM
 ### Constants ###
 knowledge_bucket = dotenv.get_key(".env", "KNOWLEDGE_BUCKET")
 
-output_folder = "notebooks/ashe_data_cleaning"
-file_prefix = "soc_index_spellcheck"
-file_suffix = "_2026_04_28"
+output_folder = "notebooks/soc_data"
+file_prefix = "ashe_correct_spelling"
+file_suffix = "_2026_05_05"
+
+BATCH_SIZE = 10
 
 soc_coding_index_file = (
     f"{knowledge_bucket}soc2020volume2thecodingindexexcel03122025.xlsx"
@@ -25,22 +28,24 @@ c_llm = ClassificationLLM("gemini-2.5-flash", verbose=False)
 
 ### Access data ###
 try:
-    data = pd.read_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv")
+    data = pd.read_csv(f"{knowledge_bucket}ASHE_classifai_soc_kb.csv")
+    print("Database loaded from storage.")
 
-    with open(
-        f"{output_folder}/checkpoint_{file_prefix}{file_suffix}.json", encoding="utf-8"
-    ) as file:
-        recent_batch_id = json.load(file)["completed_batches"]
-
-    print("Database loaded from local.")
-    print(f"STARTING FROM {recent_batch_id} batch (row {recent_batch_id * 10}).")
 
 except FileNotFoundError:
     print("KNOWLEDGE_BUCKET not found in .env file. Please set it.")
+    data = pd.read_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv")
+    print("Database loaded from local.")
 
-    data = pd.read_csv(f"{knowledge_bucket}ASHE_classifai_soc_kb.csv")
+try:
+    with open(
+        f"{output_folder}/{file_prefix}{file_suffix}.json", encoding="utf-8"
+    ) as file:
+        recent_batch_id = json.load(file)["completed_batches"]
+except FileNotFoundError:
     recent_batch_id = 0
-    print("Database loaded from storage.")
+
+print(f"STARTING FROM {recent_batch_id} batch (row {recent_batch_id * BATCH_SIZE}).")
 
 
 ### Read the data ###
@@ -130,8 +135,7 @@ in_list = data[data["documents"].isin(titles_list)].reset_index(
 )  # those are titles that came from soc_list
 
 # save the subset of titles that are repeated from SOC index
-in_list.to_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv")
-
+in_list.to_csv(f"{output_folder}/ashe_in_soc_index{file_suffix}.csv")
 print("ASHE IN SOC SAVED.")
 
 
@@ -146,8 +150,8 @@ async def batching(job_titles_column: pd.Series, batch_id: int):
         job_titles_column: snippet of the data provided of size 10.
     """
     batch = batch_id
-    start_id = batch * 10
-    end_id = batch * 10 + 10
+    start_id = batch * BATCH_SIZE
+    end_id = batch * BATCH_SIZE + BATCH_SIZE
     return job_titles_column[start_id:end_id].copy()
 
 
@@ -174,7 +178,7 @@ async def split_in_batches(df: pd.DataFrame):
     Args:
         df (pd.DataFrame): file.
     """
-    final_batch = math.ceil(len(df) / 10)  # get the amount of batches
+    final_batch = math.ceil(len(df) / BATCH_SIZE)  # get the amount of batches
 
     for current_batch_id in range(recent_batch_id, final_batch):
         print(f"batch {current_batch_id}")
@@ -185,21 +189,34 @@ async def split_in_batches(df: pd.DataFrame):
         responses = await asyncio.gather(*tasks)
 
         for k, llm_response in enumerate(responses):
-            current_row = 10 * current_batch_id + k
+            current_row = BATCH_SIZE * current_batch_id + k
             df.loc[current_row, "corrected_spelling"] = llm_response
 
-        df.to_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv")
+        start_row = current_batch_id * BATCH_SIZE
 
-        json_data = {
-            "completed_batches": current_batch_id,
-        }
+        rows_to_save = df.iloc[start_row : start_row + BATCH_SIZE][
+            ["documents",
+            "label",
+            "corrected_spelling",
+            ]
+        ]
+
+        rows_to_save.to_csv(
+            f"{output_folder}/{file_prefix}{file_suffix}.csv",
+            mode="a",
+            header=False,
+            index=False,
+        )
+
         with open(
-            f"{output_folder}/checkpoint_{file_prefix}{file_suffix}.json",
+            f"{output_folder}/{file_prefix}{file_suffix}.json",
             "w",
             encoding="utf8",
         ) as json_file:
             json.dump(
-                json_data,
+                {
+                    "completed_batches": current_batch_id,
+                },
                 json_file,
             )
 
@@ -214,6 +231,16 @@ async def split_in_batches(df: pd.DataFrame):
             # df.to_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv")
             # print("SAVED TO BUCKET")
 
+
+if not os.path.exists(f"{output_folder}/{file_prefix}{file_suffix}.csv"):
+    all_columns = [
+        "documents",
+        "label",
+        "corrected_spelling",
+    ]
+    pd.DataFrame(columns=all_columns).to_csv(
+        f"{output_folder}/{file_prefix}{file_suffix}.csv", index=False
+    )
 
 # asyncio.run(split_in_batches(not_in_list))
 asyncio.run(split_in_batches(in_list))
