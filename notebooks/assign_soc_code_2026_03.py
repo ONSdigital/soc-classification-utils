@@ -6,21 +6,27 @@ import os
 
 import dotenv
 import pandas as pd
-
 from occupational_classification.data_access.soc_data_access import combine_job_title
+
 from occupational_classification_utils.llm.llm import ClassificationLLM
 
 ### Constants ###
 knowledge_bucket = dotenv.get_key(".env", "KNOWLEDGE_BUCKET")
 
 output_folder = "notebooks/soc_data"
+
 # file_name = "ashe_in_soc_index"
 file_name = "ashe_correct_spelling"
+
 input_file_name = "_2026_04_20"
-output_file_name = "_llm_soc_codes_index_2026_04_29"
+# input_file_name = "_clean"
+
+output_file_name = "_llm_soc_codes_index_2026_04_30_attempt8"
+
 JOB_TITLE_COLUMN = "corrected_spelling"
 # JOB_TITLE_COLUMN = "documents"
 CODE_COLUMN = "label"
+
 BATCH_SIZE = 10
 
 ### Initiate llm connection ###
@@ -28,7 +34,6 @@ c_llm = ClassificationLLM("gemini-2.5-flash", verbose=False)
 
 ### Access data ###
 try:
-    # data = pd.read_csv(f"{output_folder}/checkpoint_spelling_llm{input_file_name}.csv")
     data = pd.read_csv(f"{output_folder}/{file_name}{input_file_name}.csv")
     print("Database loaded from local.")
 except FileNotFoundError:
@@ -45,7 +50,7 @@ except FileNotFoundError:
     recent_batch_id = 0
 
 print(
-    f"STARTING FROM {recent_batch_id} batch (row {recent_batch_id * BATCH_SIZE} out of {len(data)})."
+    f"STARTING FROM {recent_batch_id} batch (row {recent_batch_id * BATCH_SIZE} out of {len(data)})."  # pylint: disable=C0301
 )
 
 
@@ -96,6 +101,7 @@ def load_soc_framework(filepath: str) -> pd.DataFrame:
         group description, typical entry routes and associated qualifications,
         and list of tasks.
     """
+    # pylint: disable=R0801
     soc_df = pd.read_excel(
         filepath,
         sheet_name="SOC2020 framework",
@@ -123,6 +129,10 @@ def load_soc_framework(filepath: str) -> pd.DataFrame:
 s_list = load_soc_framework(
     f"{knowledge_bucket}soc2020volume2thecodingindexexcel03122025.xlsx"
 )
+# s_list = load_soc_index(
+#     f"{knowledge_bucket}soc2020volume2thecodingindexexcel03122025.xlsx"
+# )
+
 s_list = s_list[s_list["code"].notna()]
 
 if isinstance(s_list, pd.DataFrame):
@@ -140,7 +150,7 @@ async def run_soc_code(jt: str):
     Returns:
         codable (bool)
     """
-    response = await c_llm.get_soc_code(job_title=jt, short_list=s_list)
+    response = await c_llm.get_soc_code(job_title=jt)
     return response
 
 
@@ -160,7 +170,7 @@ async def batching(job_titles_column: pd.Series, batch_id: int):
     return job_titles_column[start_id:end_id].copy()
 
 
-async def split_in_batches(document: pd.DataFrame):
+async def split_in_batches(document: pd.DataFrame):  # pylint: disable=R0914
     """Takes the whole dataset, splits in batches and uses LLM to determine whether
     the job title allows to provide a final SOC code.
 
@@ -187,9 +197,7 @@ async def split_in_batches(document: pd.DataFrame):
 
         print(f"batch {current_batch_id}")
 
-        current_batch = await batching(
-            document[JOB_TITLE_COLUMN], current_batch_id
-        )
+        current_batch = await batching(document[JOB_TITLE_COLUMN], current_batch_id)
 
         tasks = [run_soc_code(jt) for jt in current_batch]
         responses = await asyncio.gather(*tasks)
@@ -207,37 +215,33 @@ async def split_in_batches(document: pd.DataFrame):
             document.at[current_row, "reasoning"] = reasoning
 
         start_row = current_batch_id * BATCH_SIZE
-        end_row = start_row + BATCH_SIZE
 
-        rows_to_save = document.iloc[start_row:end_row][[
-            'documents',
-            'label',
-            'corrected_spelling',
-            'codable',
-            'llm_soc_code',
-            'llm_soc_candidates',
-            'reasoning'
-            ]]
-
-
-        # document.to_csv(f"{output_folder}/{file_name}{output_file_name}.csv")
+        rows_to_save = document.iloc[start_row : start_row + BATCH_SIZE][
+            [
+                "documents",
+                "label",
+                "corrected_spelling",
+                "codable",
+                "llm_soc_code",
+                "llm_soc_candidates",
+                "reasoning",
+            ]
+        ]
 
         rows_to_save.to_csv(
             f"{output_folder}/{file_name}{output_file_name}.csv",
-            mode='a',
+            mode="a",
             header=False,
             index=False,
         )
 
-        # pylint: disable=R0801
-        json_data = {
-            "completed_batches": current_batch_id + 1,
-        }
         with open(
             f"{output_folder}/{file_name}{output_file_name}.json", "w", encoding="utf8"
         ) as json_file:
             json.dump(
-                json_data,
+                {
+                    "completed_batches": current_batch_id + 1,
+                },
                 json_file,
             )
 
@@ -248,17 +252,18 @@ async def split_in_batches(document: pd.DataFrame):
         #     print("SAVED TO BUCKET")
 
 
-
 if not os.path.exists(f"{output_folder}/{file_name}{output_file_name}.csv"):
     all_columns = [
-            'documents',
-            'label',
-            'corrected_spelling',
-            'codable',
-            'llm_soc_code',
-            'llm_soc_candidates',
-            'reasoning'
-            ]
-    pd.DataFrame(columns=all_columns).to_csv(f"{output_folder}/{file_name}{output_file_name}.csv", index=False)
+        "documents",
+        "label",
+        "corrected_spelling",
+        "codable",
+        "llm_soc_code",
+        "llm_soc_candidates",
+        "reasoning",
+    ]
+    pd.DataFrame(columns=all_columns).to_csv(
+        f"{output_folder}/{file_name}{output_file_name}.csv", index=False
+    )
 
 asyncio.run(split_in_batches(data))
