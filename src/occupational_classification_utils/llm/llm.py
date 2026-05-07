@@ -23,6 +23,10 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain_core.documents import Document
 from langchain_google_vertexai import ChatVertexAI
 from langchain_openai import ChatOpenAI
+from occupational_classification.data_access.soc_data_access import (
+    get_soc_meta,
+    load_soc_hierarchy,
+)
 from occupational_classification.hierarchy.soc_hierarchy import SOC
 from pydantic import SecretStr
 from survey_assist_utils.logging import get_logger
@@ -45,6 +49,7 @@ from occupational_classification_utils.utils.soc_data_access import (
 
 logger = get_logger(__name__)
 config = get_config()
+DEFAULT_LLM_MODEL = "gemini-1.0-pro"
 
 
 # pylint: disable=too-many-instance-attributes
@@ -68,7 +73,7 @@ class ClassificationLLM:
 
     def __init__(  # noqa: PLR0913
         self,
-        model_name: str = config["llm"]["llm_model_name"],
+        model_name: str = DEFAULT_LLM_MODEL,
         llm: Optional[Union[ChatVertexAI, ChatOpenAI]] = None,
         max_tokens: int = 1600,
         temperature: float = 0.0,

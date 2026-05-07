@@ -38,8 +38,8 @@ embed-tests:  # Allowing 75% coverage for lookup for initial commit
 utils-tests:
 	poetry run pytest -m utils  --cov=src/occupational_classification_utils/utils --cov-report=term-missing --cov-fail-under=80 --cov-config=.coveragerc
 
-all-tests:  # Relaxed to 65% until SA-585 adds more tests to reach 80%
-	poetry run pytest  --cov=. --cov-report=term-missing --cov-fail-under=65 --cov-config=.coveragerc
+all-tests:
+	poetry run python -m pytest  --cov=. --cov-report=term-missing --cov-fail-under=80 --cov-config=.coveragerc
 	
 install: ## Install the dependencies
 	poetry install --only main --no-root

@@ -5,8 +5,13 @@ It includes functionality for embedding SOC hierarchy data, managing vector stor
 and performing similarity searches.
 """
 
+# Optional but doesn't hurt
 import logging
 import os
+import sqlite3  # noqa: F401 # pylint: disable=unused-import
+
+# Docker Image may have old sqlite3 version for ChromaDB
+# Top of your module (before any langchain or chroma import)
 import uuid
 from typing import Any, Optional, Union
 
@@ -15,28 +20,15 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_google_vertexai import VertexAIEmbeddings
 from langchain_huggingface import HuggingFaceEmbeddings
+from occupational_classification.data_access.soc_data_access import load_soc_hierarchy
 from occupational_classification.hierarchy.soc_hierarchy import SOC
 
-from occupational_classification_utils.models.config_model import FullConfig
-from occupational_classification_utils.utils.soc_data_access import (
-    load_soc_hierarchy,
+from occupational_classification_utils.models.config_model import (
+    FullConfig,
 )
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-# Share configuration with other modules
-embedding_config = {
-    "embedding_model_name": "unknown",
-    "llm_model_name": "unknown",
-    "db_dir": "unknown",
-    "soc_index": "unknown",
-    "soc_structure": "unknown",
-    "soc_condensed": "unknown",
-    "matches": 0,
-    "index_size": 0,
-}
 
 
 def get_config() -> FullConfig:
@@ -48,23 +40,17 @@ def get_config() -> FullConfig:
     """
     return {
         "llm": {
-            "llm_model_name": "gemini-1.0-pro",
             "embedding_model_name": "all-MiniLM-L6-v2",  # text-embedding-004
             "db_dir": "src/occupational_classification_utils/data/vector_store",
         },
         "lookups": {
             "soc_index": (
-                "occupational_classification_utils",
-                "data/soc_index/soc2020volume2thecodingindexexcel16102024.xlsx",
+                "occupational_classification_utils.data.soc_index",
+                "soc2020volume2thecodingindexexcel16102024.xlsx",
             ),
             "soc_structure": (
-                "occupational_classification_utils",
-                "data/soc_index/"
+                "occupational_classification_utils.data.soc_index",
                 "soc2020volume1structureanddescriptionofunitgroupsexcel16102024.xlsx",
-            ),
-            "soc_condensed": (
-                "occupational_classification_utils",
-                "data/example/soc_4d_condensed.txt",
             ),
         },
     }
@@ -142,6 +128,10 @@ class EmbeddingHandler:
         self.k_matches = k_matches
         self.spell = Speller()
         self._index_size = self.vector_store._client.get_collection("langchain").count()
+        self._effective_soc_sources = (
+            config["lookups"]["soc_index"],
+            config["lookups"]["soc_structure"],
+        )
 
         logger.info(
             "Vector store created in: %s containing %s entries.",
@@ -149,15 +139,13 @@ class EmbeddingHandler:
             self._index_size,
         )
 
-        # 🔄 Update shared config
-        embedding_config["embedding_model_name"] = embedding_model_name
-        embedding_config["llm_model_name"] = config["llm"].get(
-            "llm_model_name", "unknown"
+        logger.debug(
+            "EmbeddingHandler initialised model=%s db_dir=%s matches=%s index_size=%s",
+            embedding_model_name,
+            self.db_dir,
+            self.k_matches,
+            self._index_size,
         )
-        embedding_config["db_dir"] = db_dir
-        embedding_config["matches"] = self.k_matches
-        embedding_config["index_size"] = self._index_size
-        logger.debug("EmbeddingHandler initialised with config: %s", embedding_config)
 
     def _create_vector_store(self) -> Chroma:
         """Initializes the Chroma vector store.
@@ -249,7 +237,10 @@ class EmbeddingHandler:
                     },
                 )
             )
-            ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, row["text"])))
+            # Keep deterministic IDs while preventing collisions when
+            # different SOC codes share the same text description.
+            id_seed = f"{code}:{row['text']}"
+            ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, id_seed)))
         return docs, ids, soc_index_file, soc_structure_file
 
     def embed_index(  # pylint: disable=too-many-arguments, too-many-positional-arguments, too-many-locals
@@ -275,6 +266,7 @@ class EmbeddingHandler:
             soc_structure_file (optional): Config-style tuple (package, path) to override
                 default SOC structure source. Must be tuple for data-access parity with SIC.
         """
+        # Log parameters
         logger.info(
             "Embedding index: from_empty=%s, soc=%s, file_object=%s, "
             "soc_index_file=%s, soc_structure_file=%s",
@@ -319,18 +311,17 @@ class EmbeddingHandler:
             "Inserted %s entries into vector embedding database.", f"{len(docs):,}"
         )
 
-        # Update shared config
-        embedding_config["index_size"] = self._index_size
-        embedding_config["soc_index"] = effective_index_file
-        embedding_config["soc_structure"] = effective_structure_file
-        embedding_config["soc_condensed"] = config["lookups"]["soc_condensed"]
-        embedding_config["matches"] = self.k_matches
-        embedding_config["db_dir"] = self.db_dir
-        embedding_config["embedding_model_name"] = self.embeddings.model_name
-        embedding_config["llm_model_name"] = config["llm"].get(
-            "llm_model_name", "unknown"
+        self._effective_soc_sources = (effective_index_file, effective_structure_file)
+        logger.info(
+            "Embedding state updated model=%s db_dir=%s soc_index=%s soc_structure=%s "
+            "matches=%s index_size=%s",
+            self.embeddings.model_name,
+            self.db_dir,
+            self._effective_soc_sources[0],
+            self._effective_soc_sources[1],
+            self.k_matches,
+            self._index_size,
         )
-        logger.info("Embedding config updated: %s", embedding_config)
 
     def search_index(
         self, query: str, return_dicts: bool = True
@@ -383,12 +374,10 @@ class EmbeddingHandler:
     def get_embed_config(self) -> dict:
         """Returns the current embedding configuration as a dictionary."""
         return {
-            "embedding_model_name": str(embedding_config["embedding_model_name"]),
-            "llm_model_name": str(embedding_config["llm_model_name"]),
-            "db_dir": str(embedding_config["db_dir"]),
-            "soc_index": str(embedding_config["soc_index"]),
-            "soc_structure": str(embedding_config["soc_structure"]),
-            "soc_condensed": str(embedding_config["soc_condensed"]),
-            "matches": embedding_config["matches"],
-            "index_size": embedding_config["index_size"],
+            "embedding_model_name": str(self.embeddings.model_name),
+            "db_dir": str(self.db_dir),
+            "soc_index": str(self._effective_soc_sources[0]),
+            "soc_structure": str(self._effective_soc_sources[1]),
+            "matches": self.k_matches,
+            "index_size": self._index_size,
         }
