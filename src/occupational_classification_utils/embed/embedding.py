@@ -8,7 +8,7 @@ and performing similarity searches.
 # Optional but doesn't hurt
 import logging
 import os
-import sqlite3  # noqa: F401 # pylint: disable=unused-import
+import sqlite3  # noqa: F401
 
 # Docker Image may have old sqlite3 version for ChromaDB
 # Top of your module (before any langchain or chroma import)
@@ -102,7 +102,7 @@ class EmbeddingHandler:
     def __init__(
         self,
         embedding_model_name: str = config["llm"]["embedding_model_name"],
-        db_dir: str = config["llm"]["db_dir"],
+        db_dir: str | None = config["llm"]["db_dir"],
         k_matches: int = 20,
     ):
         """Initializes the EmbeddingHandler.
@@ -155,7 +155,7 @@ class EmbeddingHandler:
         """
         if self.db_dir is None:
             logger.warning("No db_dir provided; using in-memory vector store.")
-            return Chroma(  # pylint: disable=not-callable
+            return Chroma(
                 embedding_function=self.embeddings,
                 collection_metadata={"hnsw:space": "l2"},
             )
@@ -169,7 +169,7 @@ class EmbeddingHandler:
             logger.debug("Writable: %s", os.access(self.db_dir, os.W_OK))
 
         try:
-            chroma = Chroma(  # pylint: disable=not-callable
+            chroma = Chroma(
                 embedding_function=self.embeddings,
                 persist_directory=self.db_dir,
                 collection_metadata={"hnsw:space": "l2"},
@@ -243,7 +243,7 @@ class EmbeddingHandler:
             ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, id_seed)))
         return docs, ids, soc_index_file, soc_structure_file
 
-    def embed_index(  # pylint: disable=too-many-arguments, too-many-positional-arguments, too-many-locals
+    def embed_index(
         self,
         from_empty: bool = True,
         soc: Optional[SOC] = None,
@@ -278,9 +278,7 @@ class EmbeddingHandler:
         )
         if from_empty:
             logger.info("Dropping existing vector store content.")
-            self.vector_store._client.delete_collection(  # pylint: disable=protected-access
-                "langchain"
-            )
+            self.vector_store._client.delete_collection("langchain")
             self.vector_store = self._create_vector_store()
 
         if file_object is not None:
@@ -303,9 +301,7 @@ class EmbeddingHandler:
             split_into_batches(ids, MAX_BATCH_SIZE),
         ):
             self.vector_store.add_documents(batch_docs, ids=batch_ids)
-        self._index_size = self.vector_store._client.get_collection(  # pylint: disable=protected-access
-            "langchain"
-        ).count()
+        self._index_size = self.vector_store._client.get_collection("langchain").count()
 
         logger.debug(
             "Inserted %s entries into vector embedding database.", f"{len(docs):,}"

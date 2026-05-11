@@ -251,13 +251,15 @@ async def test_sa_rag_soc_code_call_dict_job_title_normalised(
             "code": "2314",
         }
     ]
-    _response, _short_list, call_dict = (
-        await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
-            industry_descr="school",
-            job_title=title,
-            job_description="teach children",
-            short_list=short_list,
-        )
+    (
+        _response,
+        _short_list,
+        call_dict,
+    ) = await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
+        industry_descr="school",
+        job_title=title,
+        job_description="teach children",
+        short_list=short_list,
     )
     assert call_dict["job_title"] == expected_job_title
 
@@ -274,13 +276,15 @@ async def test_sa_rag_soc_code_followup_is_str(
             "code": "2314",
         }
     ]
-    response, _short_list, _call_dict = (
-        await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
-            industry_descr="school",
-            job_title="teacher",
-            job_description="teach children",
-            short_list=short_list,
-        )
+    (
+        response,
+        _short_list,
+        _call_dict,
+    ) = await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
+        industry_descr="school",
+        job_title="teacher",
+        job_description="teach children",
+        short_list=short_list,
     )
     assert isinstance(response.followup, str) or response.followup is None
 
