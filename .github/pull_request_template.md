@@ -18,13 +18,13 @@
 
 > **Please confirm you've completed these checks before requesting a review.**
 
-- [ ] Code is formatted using **Black**
-- [ ] Imports are sorted using **isort**
-- [ ] Code passes linting with **Ruff**, **Pylint**, and **Mypy**
+- [ ] Code is formatted using **ruff format**
+- [ ] Imports are sorted using **ruff**
+- [ ] Code passes linting with **ruff** and **mypy**
 - [ ] Security checks pass using **Bandit**
 - [ ] API and Unit tests are written and pass using **pytest**
 - [ ] Terraform files (if applicable) follow best practices and have been validated (`terraform fmt` & `terraform validate`)
-- [ ] DocStrings follow Google-style and are added as per Pylint recommendations
+- [ ] DocStrings follow Google-style and are added as per ruff recommendations
 - [ ] Documentation has been updated if needed
 
 ## 🔍 How to Test
