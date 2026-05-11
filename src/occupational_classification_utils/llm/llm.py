@@ -15,6 +15,7 @@ Functions:
     (None at the module level)
 """
 
+import time
 from collections import defaultdict
 from functools import lru_cache
 from typing import Any, Optional, Union
@@ -37,8 +38,9 @@ from occupational_classification_utils.llm.prompt import (
     FIX_PARSING_PROMPT,
     SA_SOC_PROMPT_RAG,
     SOC_PROMPT_PYDANTIC,
+    SOC_PROMPT_UNAMBIGUOUS,
 )
-from occupational_classification_utils.models.response_model import SocResponse
+from occupational_classification_utils.models.response_model import SocResponse, UnambiguousResponse
 
 logger = get_logger(__name__)
 config = get_config()
@@ -103,6 +105,7 @@ class ClassificationLLM:
         self.soc_meta = get_soc_meta(config["lookups"]["soc_structure"])
         self.soc_prompt = SOC_PROMPT_PYDANTIC
         self.sa_soc_prompt_rag = SA_SOC_PROMPT_RAG
+        self.soc_prompt_unambiguous = SOC_PROMPT_UNAMBIGUOUS
         self.soc: Optional[SOC] = None
         self.verbose = verbose
 
@@ -399,3 +402,167 @@ class ClassificationLLM:
                 )
 
         return validated_answer, short_list, call_dict
+
+
+    async def unambiguous_soc_code(  # noqa: PLR0913
+        self,
+        industry_descr: str,
+        semantic_search_results: list[dict],
+        job_title: Optional[str] = None,
+        job_description: Optional[str] = None,
+        level_of_education: Optional[str] = None,
+        candidates_limit: int = config["llm"]["candidates_limit"],
+        code_digits: int = config["llm"]["code_digits"],
+        correlation_id: Optional[str] = None,
+    ) -> tuple[UnambiguousResponse, Optional[Any]]:
+        """Evaluates codability to a single 4-digit SOC code based on respondent's data.
+
+        Args:
+            industry_descr (str): The description of the industry.
+            semantic_search_results (list of dicts): List of semantic search results.
+            job_title (str, optional): The job title. Defaults to None.
+            job_description (str, optional): The job description. Defaults to None.
+            level_of_education (str, optional): The level od education. Defaults to None.
+            candidates_limit (int, optional): The maximum number of candidates
+                to include in the prompt. Defaults to 5.
+            code_digits (int, optional): The number of digits to consider from
+                the code for filtering candidates. Defaults to 5.
+            correlation_id (str, optional): Optional correlation ID for request tracking.
+
+        Returns:
+            UnambiguousResponse: The generated response to the query.
+
+        Raises:
+            ValueError: If there is an error during the parsing of the response.
+            ValueError: If the default embedding handler is required but
+                not loaded correctly.
+
+        """
+        soc_candidates = self._prompt_candidate_list(
+            short_list=semantic_search_results,
+            code_digits=code_digits,
+            candidates_limit=candidates_limit,
+        )
+
+        job_title = (
+            "Unknown" if (job_title is None or job_title in {"", " "}) else job_title
+        )
+        job_description = (
+            "Unknown"
+            if (job_description is None or job_description in {"", " "})
+            else job_description
+        )
+        level_of_education = (
+            "Unknown" if (level_of_education is None or level_of_education in {"", " "}) else level_of_education
+        )
+
+        call_dict = {
+            "industry_descr": industry_descr,
+            "job_title": job_title,
+            "job_description": job_description,
+            "level_of_education": level_of_education,
+            "soc_candidates": soc_candidates,
+        }
+
+        if self.verbose:
+            final_prompt = self.soc_prompt_unambiguous.format(**call_dict)
+            logger.debug(final_prompt)
+
+        chain = self.soc_prompt_unambiguous | self.llm
+
+        # Log LLM request sent # Not logging yet - needs to create/import truncate_identifier.
+        # logger.info(
+        #     "LLM request sent - unambiguous_sic_code",
+        #     job_title=truncate_identifier(job_title),
+        #     job_description=truncate_identifier(job_description),
+        #     level_of_education=truncate_identifier(level_of_education),
+        #     industry_descr=truncate_identifier(industry_descr),
+        #     correlation_id=correlation_id or "",
+        # )
+        llm_start = time.perf_counter()
+
+        try:
+            response = await chain.ainvoke(call_dict, return_only_outputs=True)
+        except ValueError as err:
+            logger.error(
+                f"Error from chain, exit early: {err}",
+                error=str(err),
+                correlation_id=correlation_id or "",
+            )
+            validated_answer = UnambiguousResponse(
+                codable=False,
+                alt_candidates=[],
+                reasoning="Error from chain, exit early",
+            )
+            return validated_answer, call_dict
+
+        if self.verbose:
+            logger.debug(f"llm_response={response}")
+
+        # Parse the output to the desired format
+        parser = PydanticOutputParser(pydantic_object=UnambiguousResponse)  # type: ignore
+        try:
+            validated_answer = parser.parse(str(response.content))
+            # Log LLM response received after successful parse
+            alt_candidates_count = len(
+                getattr(validated_answer, "alt_candidates", []) or []
+            )
+            codable = bool(getattr(validated_answer, "codable", False))
+            selected_code = (
+                str(getattr(validated_answer, "class_code", "")) if codable else ""
+            )
+            llm_duration_ms = int((time.perf_counter() - llm_start) * 1000)
+            logger.info(
+                "LLM response received for unambiguous sic prompt",
+                codable=str(codable),
+                selected_code=selected_code,
+                alt_candidates_count=str(alt_candidates_count),
+                duration_ms=str(llm_duration_ms),
+                correlation_id=correlation_id or "",
+            )
+        except (ValueError, AttributeError) as parse_error:
+            logger.error(
+                f"Failed to parse response: {parse_error}",
+                error=str(parse_error),
+                correlation_id=correlation_id or "",
+            )
+            llm_duration_ms = int((time.perf_counter() - llm_start) * 1000)
+            logger.warning(
+                "Failed to parse response",
+                response_content=str(response.content),
+                duration_ms=str(llm_duration_ms),
+                correlation_id=correlation_id or "",
+            )
+
+            # send another llm request to fix the format (1 attempt)
+            try:
+                chain = FIX_PARSING_PROMPT | self.llm
+                response = await chain.ainvoke(
+                    {
+                        "llm_output": str(response.content),
+                        "format_instructions": parser.get_format_instructions(),
+                    },
+                    return_only_outputs=True,
+                )
+                validated_answer = parser.parse(str(response.content))
+                logger.debug("Successfully parsed reformatted response.")
+
+            except (ValueError, AttributeError) as parse_error2:
+                logger.error(
+                    f"Failed to parse response again: {parse_error2}",
+                    error=str(parse_error2),
+                )
+                logger.warning(
+                    "Failed to parse response again",
+                    response_content=str(response.content),
+                )
+                reasoning = (
+                    f"ERROR parse_error=<{parse_error2}>, response=<{response.content}>"
+                )
+                validated_answer = UnambiguousResponse(
+                    codable=False,
+                    alt_candidates=[],
+                    reasoning=reasoning,
+                )
+
+        return validated_answer, call_dict
