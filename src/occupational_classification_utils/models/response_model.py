@@ -271,3 +271,71 @@ class SurveyAssistSocResponse(BaseModel):
         selected. Specifies the information used to assign the SOC code or any
         additional information required to assign a SOC code.""",
     )
+
+
+class UnambiguousResponse(BaseModel):
+    """Represents a response model for classification code assignment.
+
+    Attributes:
+        codable (bool): True only if enough information is provided to assign
+            an unambiguous single classification code, False otherwise.
+        class_code (Optional[str]): Full classification code (to the required number of digits)
+            assigned based on provided respondent's data. Must be present if codable=True,
+            must be None if codable=False.
+        class_descriptive (Optional[str]): Descriptive label of the classification category.
+            Must be present if codable=True, must be None if codable=False.
+        alt_candidates (list[RagCandidate]): Short list of possible classification codes with their
+            descriptive labels and estimated likelihoods.
+        reasoning (str): Step by step reasoning behind the classification selected.
+    """
+
+    codable: bool = Field(
+        description="True only if enough information is provided to decide an unambiguous "
+        "classification code, False otherwise."
+    )
+
+    class_code: Optional[str] = Field(
+        default=None,
+        description="Full classification code (to the required number of digits) "
+        "assigned based on provided respondent's data. Must be present if codable=True, "
+        "must be None if codable=False.",
+    )
+
+    class_descriptive: Optional[str] = Field(
+        default=None,
+        description="Descriptive label of the classification category. "
+        "Must be present if codable=True, must be None if codable=False.",
+    )
+
+    alt_candidates: list[RagCandidate] = Field(
+        default_factory=list,
+        description="Short list of possible classification codes with their "
+        "descriptive labels and estimated likelihoods.",
+        min_length=1,  # Ensure there's always at least one candidate
+        max_length=10,  # Limit to less than 10 candidates
+    )
+
+    reasoning: str = Field(
+        description="Step by step reasoning behind the classification selected.",
+        min_length=50,  # Ensure detailed reasoning is provided
+    )
+
+    @field_validator("alt_candidates")
+    @classmethod
+    def validate_alt_candidates(cls, v):
+        """Validates the number of alternative candidates.
+
+        Ensures that the number of candidates is between 1 and the maximum allowed.
+
+        Args:
+            v (list): The list of alternative candidates.
+
+        Returns:
+            list: The validated list of candidates.
+
+        Raises:
+            ValueError: If the number of candidates is not within the allowed range.
+        """
+        if not 1 <= len(v) <= MAX_ALT_CANDIDATES:
+            raise ValueError("alt_candidates must contain between 1 and 10 items.")
+        return v

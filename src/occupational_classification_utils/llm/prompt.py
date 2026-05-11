@@ -30,6 +30,7 @@ from occupational_classification_utils.embed.embedding import get_config
 from occupational_classification_utils.models.response_model import (
     RagResponse,
     SocResponse,
+    UnambiguousResponse,
 )
 
 config = get_config()
@@ -147,6 +148,55 @@ GENERAL_PROMPT_RAG = PromptTemplate.from_template(
     template=_core_prompt + _general_template_rag,
     partial_variables={
         "format_instructions": parser.get_format_instructions(),
+    },
+)
+
+
+_soc_template_unambiguous = """"You are an expert in ocucpational classifications.
+You are tasked with determining whether a survey response can be assigned to a
+single 4-digit UK Standard Occupational Classification (SOC) code based on initial respondent data alone.
+
+Key objective:  Determine if the response can be coded unambiguously to a single 4-digit SOC code.
+
+Assignment logic:
+1. Code as unambiguous when response can be coded to a single 4-digit SOC code with 99
+per cent confidence based on available evidence.
+2. Code as uncodable to 4-digit when multiple candidates are plausible and
+additional information is needed to distinguish between them.
+
+===Analysis steps===
+Follow these steps in order:
+1. Review each candidate from the shortlist of relevant SOC codes against the respondent data.
+2. Assess alignment - Consider:
+   - Semantic similarity between respondent descriptions and SOC code descriptions
+   - Job role compatibility with typical activities in each SOC code
+   - Industry context alignment
+   - Matches with specific examples listed under each code.
+3. Assign confidence scores - Rate each candidate from 0.1 (least likely) to 0.9 (most likely).
+4. Decide if response can be codeded unambiguously to a single 4-digit SOC code with 99 per cent confidence.
+5. Provide reasoning for your decision.
+
+===Respondent Data===
+- Industry description: {industry_descr}
+- Job Title: {job_title}
+- Job Description: {job_description}
+- Level of Education: {level_of_education}
+
+===Shortlist===
+{soc_candidates}
+
+===Output Format===
+{format_instructions}
+"""
+
+parser_unambiguous = PydanticOutputParser(  # type: ignore # Suspect langchain ver bug
+    pydantic_object=UnambiguousResponse
+)
+
+SOC_PROMPT_UNAMBIGUOUS = PromptTemplate.from_template(
+    template=_core_prompt + _soc_template_unambiguous,
+    partial_variables={
+        "format_instructions": parser_unambiguous.get_format_instructions(),
     },
 )
 
