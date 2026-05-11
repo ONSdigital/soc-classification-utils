@@ -20,12 +20,12 @@
                 python-version: ["3.12"]
 
             steps:
-                - uses: actions/checkout@v4
+                - uses: actions/checkout@v6
                 - name: Install Poetry
-                  run: pipx install poetry==1.7.1
+                  run: pipx install poetry==2.3.4
 
                 - name: Set up Python
-                  uses: actions/setup-python@v5
+                  uses: actions/setup-python@v6
                   with:
                     python-version: ${{ matrix.python-version }}
                     cache: poetry
