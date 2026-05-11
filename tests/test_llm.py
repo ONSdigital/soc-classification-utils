@@ -296,7 +296,7 @@ async def test_sa_rag_soc_code_short_list_is_none_raise_value_error(
     """sa_rag_soc_code should raise ValueError when short_list is None."""
     with pytest.raises(
         ValueError,
-        match="Short list is None - list provided from embedding search.",
+        match=r"Short list is None - list provided from embedding search\.",
     ):
         await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
             industry_descr="school",

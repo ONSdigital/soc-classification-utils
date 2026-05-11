@@ -13,7 +13,7 @@ import sqlite3  # noqa: F401
 # Docker Image may have old sqlite3 version for ChromaDB
 # Top of your module (before any langchain or chroma import)
 import uuid
-from typing import Any, Optional, Union
+from typing import Any
 
 from autocorrect import Speller
 from langchain_chroma import Chroma
@@ -204,7 +204,7 @@ class EmbeddingHandler:
 
     def _docs_ids_from_hierarchy(
         self,
-        soc: Optional[SOC],
+        soc: SOC | None,
         soc_index_file: Any,
         soc_structure_file: Any,
     ) -> tuple[list[Document], list[str], Any, Any]:
@@ -246,7 +246,7 @@ class EmbeddingHandler:
     def embed_index(
         self,
         from_empty: bool = True,
-        soc: Optional[SOC] = None,
+        soc: SOC | None = None,
         file_object=None,
         soc_index_file=None,
         soc_structure_file=None,
@@ -299,6 +299,7 @@ class EmbeddingHandler:
         for batch_docs, batch_ids in zip(
             split_into_batches(docs, MAX_BATCH_SIZE),
             split_into_batches(ids, MAX_BATCH_SIZE),
+            strict=True,
         ):
             self.vector_store.add_documents(batch_docs, ids=batch_ids)
         self._index_size = self.vector_store._client.get_collection("langchain").count()
@@ -321,7 +322,7 @@ class EmbeddingHandler:
 
     def search_index(
         self, query: str, return_dicts: bool = True
-    ) -> Union[list[dict], list[tuple[Document, float]]]:
+    ) -> list[dict] | list[tuple[Document, float]]:
         """Returns k document chunks with the highest relevance to the query.
 
         Args:
@@ -331,7 +332,7 @@ class EmbeddingHandler:
                 dictionaries. Otherwise, returns document tuples. Defaults to True.
 
         Returns:
-            Union[list[dict], list[tuple[Document, float]]]: List of top k index entries
+            list[dict] | list[tuple[Document, float]]: List of top k index entries
             by relevance.
         """
         top_matches = self.vector_store.similarity_search_with_score(
