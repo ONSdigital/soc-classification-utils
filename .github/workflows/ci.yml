@@ -39,8 +39,24 @@
                 - name: Install dependencies
                   run: make install-dev
 
+                - name: Restore mypy cache
+                  id: restore-mypy-cache
+                  uses: actions/cache/restore@v5
+                  with:
+                    path: .mypy_cache
+                    key: ${{ runner.os }}-py${{ matrix.python-version }}-mypy-${{ hashFiles('poetry.lock', 'pyproject.toml', 'Makefile') }}-${{ github.sha }}
+                    restore-keys: |
+                      ${{ runner.os }}-py${{ matrix.python-version }}-mypy-${{ hashFiles('poetry.lock', 'pyproject.toml', 'Makefile') }}-
+
                 - name: Lint Python
                   run: make check-python-nofix
+
+                - name: Save mypy cache
+                  if: ${{ always() && hashFiles('.mypy_cache/**') != '' }}
+                  uses: actions/cache/save@v5
+                  with:
+                    path: .mypy_cache
+                    key: ${{ steps.restore-mypy-cache.outputs.cache-primary-key }}
 
                 #- name: Test Python
                 #  run: make all-tests
