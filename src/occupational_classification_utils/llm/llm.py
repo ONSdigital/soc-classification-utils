@@ -39,6 +39,7 @@ from occupational_classification_utils.llm.prompt import (
     SA_SOC_PROMPT_RAG,
     SOC_PROMPT_PYDANTIC,
     SOC_PROMPT_UNAMBIGUOUS,
+    SOC_PROMPT_OPENFOLLOWUP,
 )
 from occupational_classification_utils.models.response_model import SocResponse, UnambiguousResponse
 
@@ -106,6 +107,7 @@ class ClassificationLLM:
         self.soc_prompt = SOC_PROMPT_PYDANTIC
         self.sa_soc_prompt_rag = SA_SOC_PROMPT_RAG
         self.soc_prompt_unambiguous = SOC_PROMPT_UNAMBIGUOUS
+        self.soc_prompt_openfollowup = SOC_PROMPT_OPENFOLLOWUP
         self.soc: Optional[SOC] = None
         self.verbose = verbose
 
@@ -564,5 +566,167 @@ class ClassificationLLM:
                     alt_candidates=[],
                     reasoning=reasoning,
                 )
+
+        return validated_answer, call_dict
+
+    async def formulate_open_question(
+        self,
+        industry_descr: str,
+        job_title: str | None = None,
+        job_description: str | None = None,
+        level_of_education: str | None = None,
+        llm_output: SicCandidate | None = None,
+        correlation_id: str | None = None,
+    ) -> tuple[OpenFollowUp, Any]:
+        """Formulates an open-ended question using respondent data and survey design guidelines.
+
+        Args:
+            industry_descr (str): The description of the industry.
+            job_title (str, optional): The job title. Defaults to None.
+            job_description (str, optional): The job description. Defaults to None.
+            level_of_education (str, optional): The level od education. Defaults to None.
+            llm_output (SicCandidate, optional): The response from the LLM model.
+            correlation_id (str, optional): Optional correlation ID for request tracking.
+
+        Returns:
+            OpenFollowUp: The generated response to the query.
+
+        Raises:
+            ValueError: If there is an error during the parsing of the response.
+            ValueError: If the default embedding handler is required but
+                not loaded correctly.
+
+        """
+
+        def prep_call_dict(industry_descr, job_title, job_description, level_of_education, llm_output):
+            # Helper function to prepare the call dictionary
+            is_job_title_present = job_title is None or job_title in {"", " "}
+            job_title = "Unknown" if is_job_title_present else job_title
+
+            is_job_description_present = job_description is None or job_description in {
+                "",
+                " ",
+            }
+            job_description = (
+                "Unknown" if is_job_description_present else job_description
+            )
+            level_of_education = (
+                "Unknown" if (level_of_education is None or level_of_education in {"", " "}) else level_of_education
+            )
+
+            call_dict = {
+                "industry_descr": industry_descr,
+                "job_title": job_title,
+                "job_description": job_description,
+                "level_of_education": level_of_education,
+                "llm_output": str(llm_output),
+            }
+            return call_dict
+
+        call_dict = prep_call_dict(
+            industry_descr=industry_descr,
+            job_title=job_title,
+            job_description=job_description,
+            level_of_education=level_of_education,
+            llm_output=llm_output,
+        )
+
+        if self.verbose:
+            final_prompt = self.soc_prompt_openfollowup.format(**call_dict)
+            logger.debug(final_prompt)
+
+        chain = self.soc_prompt_openfollowup | self.llm
+
+        # Log LLM request sent # Not logging yet - needs to create/import truncate_identifier.
+        # logger.info(
+        #     "LLM request sent - formulate_open_question",
+        #     job_title=truncate_identifier(job_title),
+        #     job_description=truncate_identifier(job_description),
+        #     level_of_education=truncate_identifier(level_of_education),
+        #     industry_descr=truncate_identifier(industry_descr),
+        #     correlation_id=correlation_id or "",
+        # )
+        llm_start = time.perf_counter()
+
+        try:
+            response = await chain.ainvoke(call_dict, return_only_outputs=True)
+        except (ValueError, AttributeError) as err:
+            logger.error(
+                f"Error from LLMChain, exit early: {err}",
+                error=str(err),
+                correlation_id=correlation_id or "",
+            )
+            logger.warning(
+                "Error from LLMChain, exit early",
+                correlation_id=correlation_id or "",
+            )
+            validated_answer = OpenFollowUp(
+                followup=None,
+                reasoning="Error from LLMChain, exit early",
+            )
+            return validated_answer, call_dict
+
+        llm_duration_ms = int((time.perf_counter() - llm_start) * 1000)
+
+        # Parse the output to the desired format
+        parser = PydanticOutputParser(pydantic_object=OpenFollowUp)
+        try:
+            validated_answer = parser.parse(str(response.content))
+            # Log LLM response received after successful parse
+            has_followup = bool(getattr(validated_answer, "followup", None))
+            logger.info(
+                "LLM response received for open question prompt",
+                has_followup=str(has_followup),
+                duration_ms=str(llm_duration_ms),
+                correlation_id=correlation_id or "",
+            )
+        except (ValueError, AttributeError) as parse_error:
+            logger.error(
+                f"Failed to parse response: {parse_error}",
+                error=str(parse_error),
+                correlation_id=correlation_id or "",
+            )
+            logger.warning(
+                "Failed to parse response",
+                response_content=str(response.content),
+                correlation_id=correlation_id or "",
+            )
+            logger.info(
+                "LLM response received for open question prompt",
+                has_followup="False",
+                duration_ms=str(llm_duration_ms),
+                correlation_id=correlation_id or "",
+            )
+            try:
+                chain = FIX_PARSING_PROMPT | self.llm
+                response = await chain.ainvoke(
+                    {
+                        "llm_output": str(response.content),
+                        "format_instructions": parser.get_format_instructions(),
+                    },
+                    return_only_outputs=True,
+                )
+                validated_answer = parser.parse(str(response.content))
+                logger.debug("Successfully parsed reformatted response.")
+
+            except (ValueError, AttributeError) as parse_error2:
+                logger.error(
+                    f"Failed to parse response again: {parse_error2}",
+                    error=str(parse_error2),
+                )
+                logger.warning(
+                    "Failed to parse response again",
+                    response_content=str(response.content),
+                )
+                reasoning = (
+                    f"ERROR parse_error=<{parse_error2}>, response=<{response.content}>"
+                )
+                validated_answer = OpenFollowUp(
+                    followup=None,
+                    reasoning=reasoning,
+                )
+
+        if self.verbose:
+            logger.debug(f"{response=}")
 
         return validated_answer, call_dict

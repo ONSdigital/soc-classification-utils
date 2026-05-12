@@ -339,3 +339,25 @@ class UnambiguousResponse(BaseModel):
         if not 1 <= len(v) <= MAX_ALT_CANDIDATES:
             raise ValueError("alt_candidates must contain between 1 and 10 items.")
         return v
+
+
+class OpenFollowUp(BaseModel):
+    """Represents a response model for open ended follow-up question.
+
+    Attributes:
+        followup (str): Question to ask user in order to collect
+            additional information to enable reliable classification assignment.
+        reasoning (str): Reasoning explaining how follow-up question will help
+            assign classification code.
+    """
+
+    followup: str | None = Field(
+        description="""Question to ask user in order to collect additional information
+        to enable reliable classification assignment.""",
+        default="",
+    )
+    reasoning: str = Field(
+        description="""Reasoning explaining how follow-up question will help
+            assign classification code.""",
+        default="",
+    )
