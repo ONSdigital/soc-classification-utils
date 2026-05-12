@@ -128,6 +128,27 @@ def test_model_name():
     assert ClassificationLLM().llm.model_name == "gemini-1.0-pro"
 
 
+def test_sa_soc_prompt_requires_followup_only_for_ambiguity():
+    """Prompt should request final code when a clear winner exists.
+
+    Note: this only asserts wording on the single-step `SA_SOC_PROMPT_RAG`
+    template. When SOC moves to two-step classification (SIC-style), remove
+    this test or replace it with checks on the new prompt(s).
+    """
+    from occupational_classification_utils.llm.prompt import SA_SOC_PROMPT_RAG
+
+    prompt_text = SA_SOC_PROMPT_RAG.template
+    assert (
+        "You must provide a follow up question that would help identify the exact coding based"
+        in prompt_text
+    )
+    assert "when the coding is ambiguous." in prompt_text
+    assert (
+        "When one SOC code is clearly the most likely match, return that final SOC code and"
+        in prompt_text
+    )
+
+
 @pytest.mark.llm
 async def test_llm_response_mocked_sa_rag_soc_code(
     classification_llm_with_soc_sa_rag_soc,
