@@ -19,6 +19,7 @@ from occupational_classification.data_access.soc_data_access import (
 from occupational_classification.hierarchy.soc_hierarchy import load_hierarchy
 
 from occupational_classification_utils.llm.llm import ClassificationLLM
+from occupational_classification_utils.llm.prompt import SA_SOC_PROMPT_RAG
 from occupational_classification_utils.models.response_model import SocResponse
 
 MODEL_NAME = "gemini-2.5-flash"
@@ -135,8 +136,6 @@ def test_sa_soc_prompt_requires_followup_only_for_ambiguity():
     template. When SOC moves to two-step classification (SIC-style), remove
     this test or replace it with checks on the new prompt(s).
     """
-    from occupational_classification_utils.llm.prompt import SA_SOC_PROMPT_RAG
-
     prompt_text = SA_SOC_PROMPT_RAG.template
     assert (
         "You must provide a follow up question that would help identify the exact coding based"
