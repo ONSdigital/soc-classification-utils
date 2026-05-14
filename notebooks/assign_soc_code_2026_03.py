@@ -1,4 +1,4 @@
-# pylint: disable=C0103, C0114
+# pylint: disable=C0103
 """This is not a notebook. Run as a script.
 
 Allows to use LLM to assign SOC codes.
