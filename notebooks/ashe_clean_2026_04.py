@@ -7,7 +7,7 @@ import os
 
 import dotenv
 import pandas as pd
-from occupational_classification.data_access.soc_data_access import combine_job_title
+from occupational_classification.data_access.soc_data_access import _combine_soc_index_job_title as combine_job_title
 
 from occupational_classification_utils.llm.llm import ClassificationLLM
 

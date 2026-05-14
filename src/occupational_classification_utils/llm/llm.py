@@ -42,7 +42,7 @@ from occupational_classification_utils.models.response_model import (
     SocResponse,
     Spelling,
 )
-from occupational_classification_utils.utils.soc_data_access import (
+from occupational_classification.data_access.soc_data_access import (
     get_soc_meta,
     load_soc_hierarchy,
 )
