@@ -14,9 +14,6 @@ import os
 
 import dotenv
 import pandas as pd
-from occupational_classification.data_access.soc_data_access import (
-    _combine_soc_index_job_title as combine_job_title,
-)
 
 from occupational_classification_utils.llm.llm import ClassificationLLM
 
@@ -64,90 +61,6 @@ print(
     f"STARTING FROM {recent_batch_id} batch (row {recent_batch_id * BATCH_SIZE} out of {len(data)})."  # pylint: disable=C0301
 )
 
-
-### Read the data ###
-def load_soc_index(filepath: str) -> pd.DataFrame:
-    """Load SOC index.
-    Provides a list of over 32,000 titles associated with employment.
-
-    Args:
-        filepath (str): A path to the file containing SOC Index.
-
-    Returns:
-        pd.DataFrame: A DataFrame with transformed job titles.
-    """
-    # pylint: disable=R0801
-    soc_index_df = pd.read_excel(
-        filepath,
-        sheet_name="SOC2020 coding index",
-        usecols=["SOC_2020", "INDEXOCC-natural_word_order", "ADD", "IND"],
-        dtype=str,
-    )
-
-    soc_index_df.columns = [col.lower() for col in soc_index_df.columns]
-
-    soc_index_df = soc_index_df.rename(
-        columns={"indexocc-natural_word_order": "natural_word", "soc_2020": "code"}
-    )
-
-    soc_index_df = soc_index_df[soc_index_df["code"] != "}}}}"]
-    soc_index_df = soc_index_df.dropna(subset=["code", "natural_word"])
-    soc_index_df["title"] = soc_index_df.apply(combine_job_title, axis=1)
-    soc_index_df = soc_index_df[["code", "title"]]
-    soc_index_df["title"] = soc_index_df["title"].str.capitalize()
-
-    return soc_index_df
-
-
-def load_soc_framework(filepath: str) -> pd.DataFrame:
-    """Load SOC structure.
-
-    Provides structure with all levels and names of the SOC 2020.
-
-    Args:
-        filepath (str): A path to the file containing SOC Structure.
-
-    Returns:
-        pd.DataFrame: A DataFrame containing group code, group title,
-        group description, typical entry routes and associated qualifications,
-        and list of tasks.
-    """
-    # pylint: disable=R0801
-    soc_df = pd.read_excel(
-        filepath,
-        sheet_name="SOC2020 framework",
-        usecols=[
-            "SOC2020 Unit Group",
-            "SOC2020 Group Title",
-        ],
-        dtype=str,
-    )
-    soc_df.columns = [
-        col.lower().replace(" ", "_").replace("__", "_").replace("\n", "")
-        for col in soc_df.columns
-    ]
-    soc_df = soc_df.rename(
-        columns={"soc2020_unit_group": "code", "soc2020_group_title": "title"}
-    )
-
-    for col in soc_df.columns:
-        soc_df[col] = soc_df[col].str.strip()
-
-    return soc_df
-
-
-### Create a dictionary for short list ###
-s_list = load_soc_framework(
-    f"{knowledge_bucket}soc2020volume2thecodingindexexcel03122025.xlsx"
-)
-# s_list = load_soc_index(
-#     f"{knowledge_bucket}soc2020volume2thecodingindexexcel03122025.xlsx"
-# )
-
-s_list = s_list[s_list["code"].notna()]
-
-if isinstance(s_list, pd.DataFrame):
-    s_list = s_list.to_dict(orient="records")
 
 data = data.drop_duplicates(subset=[JOB_TITLE_COLUMN, CODE_COLUMN], keep="last")
 
