@@ -1,4 +1,12 @@
-# pylint: disable=C0103, C0114
+# pylint: disable=C0103
+"""This is not a notebook. Run as a script.
+
+Allows to use LLMS to correct spelling of provided text strings.
+Recognises ABBREVIATIONS commonly used in SOC.
+
+To execute, run:
+    `python notebooks/ashe_clean_2026_04.py `
+"""
 
 import asyncio
 import json
@@ -7,7 +15,9 @@ import os
 
 import dotenv
 import pandas as pd
-from occupational_classification.data_access.soc_data_access import _combine_soc_index_job_title as combine_job_title
+from occupational_classification.data_access.soc_data_access import (
+    _combine_soc_index_job_title as combine_job_title,
+)
 
 from occupational_classification_utils.llm.llm import ClassificationLLM
 
