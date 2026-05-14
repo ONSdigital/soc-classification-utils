@@ -149,7 +149,7 @@ in_list.to_csv(f"{output_folder}/ashe_in_soc_index{file_suffix}.csv", index=Fals
 print("ASHE IN SOC SAVED.")
 
 
-async def batching(job_titles_column: pd.Series, batch_id: int):
+def batching(job_titles_column: pd.Series, batch_id: int):
     """Takes next batch from the dataset of size 10.
 
     Args:
@@ -193,7 +193,7 @@ async def split_in_batches(df: pd.DataFrame):
     for current_batch_id in range(recent_batch_id, final_batch):
         print(f"batch {current_batch_id}")
 
-        current_batch = await batching(df["documents"], current_batch_id)
+        current_batch = batching(df["documents"], current_batch_id)
 
         tasks = [spelling(jt=jt, abb_dict=soc_abb_dict) for jt in current_batch]
         responses = await asyncio.gather(*tasks)

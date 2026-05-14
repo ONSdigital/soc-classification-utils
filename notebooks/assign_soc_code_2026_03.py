@@ -165,7 +165,7 @@ async def run_soc_code(jt: str):
     return response
 
 
-async def batching(job_titles_column: pd.Series, batch_id: int):
+def batching(job_titles_column: pd.Series, batch_id: int):
     """Takes next batch from the dataset of specified size.
 
     Args:
@@ -208,7 +208,7 @@ async def split_in_batches(document: pd.DataFrame):  # pylint: disable=R0914
 
         print(f"batch {current_batch_id}")
 
-        current_batch = await batching(document[JOB_TITLE_COLUMN], current_batch_id)
+        current_batch = batching(document[JOB_TITLE_COLUMN], current_batch_id)
 
         tasks = [run_soc_code(jt) for jt in current_batch]
         responses = await asyncio.gather(*tasks)
