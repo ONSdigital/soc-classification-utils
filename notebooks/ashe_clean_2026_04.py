@@ -55,7 +55,7 @@ try:
 except FileNotFoundError:
     recent_batch_id = 0
 
-print(f"STARTING FROM {recent_batch_id} batch (row {recent_batch_id * BATCH_SIZE}).")
+print(f"STARTING FROM {recent_batch_id} batch (row {recent_batch_id * BATCH_SIZE} out of {len(data)}).")
 
 
 ### Read the data ###
@@ -79,11 +79,11 @@ def load_soc_index(filepath: str) -> pd.DataFrame:
     soc_index_df.columns = [col.lower() for col in soc_index_df.columns]
 
     soc_index_df = soc_index_df.rename(
-        columns={"indexocc-natural_word_order": "natural_word", "soc_2020": "code"}
+        columns={"indexocc-natural_word_order": "indexocc", "soc_2020": "code"}
     )
 
     soc_index_df = soc_index_df[soc_index_df["code"] != "}}}}"]
-    soc_index_df = soc_index_df.dropna(subset=["code", "natural_word"])
+    soc_index_df = soc_index_df.dropna(subset=["code", "indexocc"])
     soc_index_df["title"] = soc_index_df.apply(combine_job_title, axis=1)
     soc_index_df = soc_index_df[["code", "title"]]
     soc_index_df["title"] = soc_index_df["title"].str.capitalize()
@@ -94,7 +94,7 @@ def load_soc_index(filepath: str) -> pd.DataFrame:
 soc_list = load_soc_index(soc_coding_index_file)
 
 
-def load_soc_abbreviations(filepath: str) -> dict:
+def load_soc_abbreviations(filepath: str) -> pd.DataFrame:
     """Load abbreviations used in SOC.
     Provides a list of abbreviations recognised in SOC titles.
 
@@ -102,7 +102,7 @@ def load_soc_abbreviations(filepath: str) -> dict:
         filepath (str): A path to the file containing SOC Abbreviations.
 
     Returns:
-        dict: A dictioary with abbreviations.
+        pd.DataFrame: A dictioary with abbreviations.
     """
     soc_abbreviation = pd.read_excel(
         filepath,
@@ -145,7 +145,7 @@ in_list = data[data["documents"].isin(titles_list)].reset_index(
 )  # those are titles that came from soc_list
 
 # save the subset of titles that are repeated from SOC index
-in_list.to_csv(f"{output_folder}/ashe_in_soc_index{file_suffix}.csv")
+in_list.to_csv(f"{output_folder}/ashe_in_soc_index{file_suffix}.csv", index=False)
 print("ASHE IN SOC SAVED.")
 
 
@@ -202,6 +202,9 @@ async def split_in_batches(df: pd.DataFrame):
             current_row = BATCH_SIZE * current_batch_id + k
             df.loc[current_row, "corrected_spelling"] = llm_response
 
+            if df.loc[current_row, "corrected_spelling"] in [None, "None"]:
+                df.loc[current_row, "corrected_spelling"] = df.loc[current_row, "label"]
+
         start_row = current_batch_id * BATCH_SIZE
 
         rows_to_save = df.iloc[start_row : start_row + BATCH_SIZE][
@@ -233,13 +236,15 @@ async def split_in_batches(df: pd.DataFrame):
 
         if current_batch_id + 1 == final_batch:
             df = df.drop_duplicates(
-                subset=["corrected_spelling", "label"], keep="last"
+                subset=["corrected_spelling", "label"], keep="last", ignore_index=True
             )  # remove duplicates in the corrected spelling
 
-            df.to_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv")
-            print("FILE SAVED TO LOCAL")
+            df = df[["documents","label","corrected_spelling"]].copy()
+            df.to_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv", index=False)
 
-            # df.to_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv")
+            print("FILE SAVED TO LOCAL")
+            
+            # df.to_csv(f"{knowledge_bucket}wip_data/{file_prefix}{file_suffix}.csv", index=False)
             # print("SAVED TO BUCKET")
 
 
@@ -253,5 +258,5 @@ if not os.path.exists(f"{output_folder}/{file_prefix}{file_suffix}.csv"):
         f"{output_folder}/{file_prefix}{file_suffix}.csv", index=False
     )
 
-# asyncio.run(split_in_batches(not_in_list))
-asyncio.run(split_in_batches(in_list))
+asyncio.run(split_in_batches(not_in_list))
+# asyncio.run(split_in_batches(in_list))

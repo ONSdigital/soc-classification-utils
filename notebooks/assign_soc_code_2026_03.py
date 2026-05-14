@@ -44,12 +44,13 @@ c_llm = ClassificationLLM("gemini-2.5-flash", verbose=False)
 
 ### Access data ###
 try:
-    data = pd.read_csv(f"{output_folder}/{file_name}{input_file_name}.csv")
-    print("Database loaded from local.")
-except FileNotFoundError:
-    print("KNOWLEDGE_BUCKET not found in .env file. Please set it.")
     data = pd.read_csv(f"{knowledge_bucket}{file_name}{input_file_name}.csv")
     print("Database loaded from storage.")
+
+except FileNotFoundError:
+    print("KNOWLEDGE_BUCKET not found in .env file. Please set it.")
+    data = pd.read_csv(f"{output_folder}/{file_name}{input_file_name}.csv")
+    print("Database loaded from local.")
 
 try:
     with open(

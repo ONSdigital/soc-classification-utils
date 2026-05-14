@@ -31,7 +31,7 @@ soc_kb = soc_kb.drop_duplicates(
 )
 
 # %%
-# soc_kb.to_csv(f"{knowledge_bucket}SOC_KB.csv")
+# soc_kb.to_csv(f"{knowledge_bucket}SOC_KB.csv", index=False)
 
 # %%
 mask = soc_kb.groupby("text")["label"].transform("nunique") > 1
