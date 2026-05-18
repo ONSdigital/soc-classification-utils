@@ -58,8 +58,8 @@
                     path: .mypy_cache
                     key: ${{ steps.restore-mypy-cache.outputs.cache-primary-key }}
 
-                #- name: Test Python
-                #  run: make all-tests
+                - name: Test Python
+                  run: make all-tests
 
                 - name: Cleanup residue file
                   run: make clean
