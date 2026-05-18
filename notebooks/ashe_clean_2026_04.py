@@ -26,7 +26,7 @@ knowledge_bucket = dotenv.get_key(".env", "KNOWLEDGE_BUCKET")
 
 output_folder = "notebooks/soc_data"
 file_prefix = "ashe_correct_spelling"
-file_suffix = "_2026_05_05"
+file_suffix = "_2026_05_18"
 
 BATCH_SIZE = 10
 
@@ -202,7 +202,9 @@ async def split_in_batches(df: pd.DataFrame):
             current_row = BATCH_SIZE * current_batch_id + k
             df.loc[current_row, "corrected_spelling"] = llm_response
 
-            if df.loc[current_row, "corrected_spelling"] in [None, "None"]:
+            if isinstance(df.loc[current_row, "corrected_spelling"], float):
+                df.loc[current_row, "corrected_spelling"] = df.loc[current_row, "label"]
+            elif "JOB TITLE" in df.loc[current_row, "corrected_spelling"]:
                 df.loc[current_row, "corrected_spelling"] = df.loc[current_row, "label"]
 
         start_row = current_batch_id * BATCH_SIZE
@@ -235,16 +237,17 @@ async def split_in_batches(df: pd.DataFrame):
             )
 
         if current_batch_id + 1 == final_batch:
-            df = df.drop_duplicates(
+            
+            final_df = pd.read_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv")
+            final_df = final_df.drop_duplicates(
                 subset=["corrected_spelling", "label"], keep="last", ignore_index=True
             )  # remove duplicates in the corrected spelling
 
-            df = df[["documents","label","corrected_spelling"]].copy()
-            df.to_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv", index=False)
+            final_df.to_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv", index=False)
 
             print("FILE SAVED TO LOCAL")
             
-            # df.to_csv(f"{knowledge_bucket}wip_data/{file_prefix}{file_suffix}.csv", index=False)
+            # final_df.to_csv(f"{knowledge_bucket}wip_data/{file_prefix}{file_suffix}.csv", index=False)
             # print("SAVED TO BUCKET")
 
 
@@ -257,6 +260,7 @@ if not os.path.exists(f"{output_folder}/{file_prefix}{file_suffix}.csv"):
     pd.DataFrame(columns=all_columns).to_csv(
         f"{output_folder}/{file_prefix}{file_suffix}.csv", index=False
     )
+
 
 asyncio.run(split_in_batches(not_in_list))
 # asyncio.run(split_in_batches(in_list))
