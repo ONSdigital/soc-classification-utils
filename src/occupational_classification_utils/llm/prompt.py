@@ -209,13 +209,19 @@ If the output is not valid JSON, you must fix it without altering the intended m
 
 
 CORRECT_SPELLING_PROMPT = PromptTemplate.from_template(
-    """Correct spelling of this job title: {job_title}
+    """Correct spelling of this job title: {job_title}.
 
-    Accepted abbreviations and their meaning in a dictionary format: {abbreviations}
-    Do not replace abbreviations. Use the dictionary only to correct the misspelled job titles.
+    Accepted abbreviations and their meaning: {abbreviations}
+
+    Do NOT replace abbreviations if they appear in the provided list of abbreviations.
+    Use British English.
+
+    Use provided list of abbreviations, only to correct spelling, keeping the abbreviations
+    when they appear in the job title provided.
+    
     If the original job title contains an abbreviation, check if the meaning is correct,
-    but do not replace the abbreviation.
+    and do NOT replace the abbreviation.
 
-    If there is no need to correct the spelling, return the original job title.
+    When the speling is correct, return the original job title.
     """
 )
