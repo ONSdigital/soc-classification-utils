@@ -27,7 +27,7 @@ LOCATION = "europe-west2"
 
 # Mock LLM connections
 @pytest.fixture
-async def classification_llm_with_soc_sa_rag_soc():
+def classification_llm_with_soc_sa_rag_soc():
     """ClassificationLLM with mocked ainvoke (async invoke) for sa_rag_soc_code
     (mirrors SIC classification_llm_with_sic_sa_rag_sic).
 
