@@ -222,6 +222,6 @@ CORRECT_SPELLING_PROMPT = PromptTemplate.from_template(
     If the original job title contains an abbreviation, check if the meaning is correct,
     and do NOT replace the abbreviation.
 
-    When the speling is correct, return the original job title.
+    When the spelling is correct, return the original job title.
     """
 )
