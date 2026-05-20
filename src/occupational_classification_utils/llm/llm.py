@@ -401,32 +401,28 @@ class ClassificationLLM:
     ) -> tuple[OpenFollowUp, dict[str, Any]]:
         """Formulate an open-ended follow-up (mirrors SIC formulate_open_question)."""
 
-        def prep_call_dict(
-            industry_descr_: str,
-            job_title_: Optional[str],
-            job_description_: Optional[str],
-            llm_output_: RagCandidate | None,
-        ) -> dict[str, Any]:
-            is_job_title_present = job_title_ is None or job_title_ in {"", " "}
-            jt = "Unknown" if is_job_title_present else job_title_
-            is_job_description_present = (
-                job_description_ is None
-                or job_description_
-                in {
-                    "",
-                    " ",
-                }
+        def prep_call_dict(industry_descr, job_title, job_description, llm_output):
+            is_job_title_present = job_title is None or job_title in {"", " "}
+            job_title = "Unknown" if is_job_title_present else job_title
+            is_job_description_present = job_description is None or job_description in {
+                "",
+                " ",
+            }
+            job_description = (
+                "Unknown" if is_job_description_present else job_description
             )
-            jd = "Unknown" if is_job_description_present else job_description_
             return {
-                "industry_descr": industry_descr_,
-                "job_title": jt,
-                "job_description": jd,
-                "llm_output": str(llm_output_),
+                "industry_descr": industry_descr,
+                "job_title": job_title,
+                "job_description": job_description,
+                "llm_output": str(llm_output),
             }
 
         call_dict = prep_call_dict(
-            industry_descr, job_title, job_description, llm_output
+            industry_descr=industry_descr,
+            job_title=job_title,
+            job_description=job_description,
+            llm_output=llm_output,
         )
 
         if self.verbose:
