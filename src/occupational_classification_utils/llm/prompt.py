@@ -214,8 +214,8 @@ SOC_PROMPT_UNAMBIGUOUS = PromptTemplate.from_template(
 )
 
 _open_follow_up = """"You are an expert survey methodologist specialising in
-UK occupational classification (SOC 2020). Generate one open-ended follow-up
-question to help assign the most relevant four-digit SOC code.
+UK occupational classification (SOC 2020). Generate one open-ended follow-up question
+to help assign the most relevant four-digit SOC unit group.
 
 Objective
 - Produce exactly one question that elicits the key information needed to distinguish
@@ -232,14 +232,39 @@ Inputs
 to the respondent.
 
 How to decide what to ask
-- Identify the smallest, most informative difference among the candidates.
-- Prioritise: main tasks and duties, sector or setting, skill level, customer type.
+- Identify the smallest, most informative difference among the candidates and target that with a single question.
+- Prioritise discriminators in this order:
+1) Main tasks and duties (what the respondent actually does day to day, including tools, materials, and who or what they work with).
+2) Work setting or sector (for example healthcare, education, construction, agriculture, office, retail premises, outdoor or site-based work).
+3) Skill level or seniority (for example supervisory or line-management vs hands-on; professional or technical vs elementary).
+4) Who or what they mainly serve or produce for (patients, pupils, customers, machinery, data or systems, goods).
 - Ask about only one discriminator—the one most likely to resolve the ambiguity.
 
 Quality standards
-- Plain British English; max 25 words; neutral; one sentence with a question mark.
-- Focus on the job and main activities—not personal identifiers.
-- Do not mention SOC or code numbers.
+- Language and clarity:
+    - Use plain British English; avoid or define jargon and abbreviations.
+    - Keep the single question concise (max 25 words), grammatically correct, and neutral.
+    - Use "employer" for for-profit; use "organisation" for non-profits, charities, public bodies, and education.
+        Default to "employer", if ambiguous.
+    - Refer to the present situation (e.g., "currently", "main").
+    - Do not mention SOC or any code numbers.
+    - Do not ask for personal names, client names, or other sensitive data beyond what is needed to describe the job.
+- Question structure:
+    - Start with "What", "How", "Which", or "Where".
+    - Focus on the respondent's job and main activities; use employer context only where it helps distinguish the role.
+    - One issue per question; no A/B or either/or phrasing; avoid binary questions.
+    - Limit to one sentence ending with a question mark.
+    - You may add one additional sentence with broad, non-leading examples covering a wide range of options;
+        omit examples if they would be leading.
+- Respondent considerations:
+    - Make it easy to answer in a few words.
+    - Ask only what a typical employee would reasonably know about their own role.
+    - Avoid requiring calculations or percentages.
+
+Edge cases
+- If the shortlist is empty or clearly points to one category, ask a general clarifying question about
+    main tasks or work setting to confirm classification.
+- Do not output explanations or reasoning; only the formatted result.
 
 Output format
 - Return output that strictly follows:
