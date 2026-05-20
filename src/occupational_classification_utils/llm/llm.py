@@ -528,7 +528,6 @@ class ClassificationLLM:
         industry_descr: str,
         job_title: Optional[str] = None,
         job_description: Optional[str] = None,
-        expand_search_terms: bool = True,
         code_digits: int = config["llm"]["code_digits"],
         candidates_limit: int = config["llm"]["candidates_limit"],
         short_list: Optional[list[dict[Any, Any]]] = None,
@@ -536,23 +535,19 @@ class ClassificationLLM:
         """Generates a SOC classification based on respondent's data using RAG approach.
 
         Caller must provide short_list (e.g. from vector store API). Mirrors
-        sic-classification-utils sa_rag_sic_code (raise when short_list is None;
-        use SocResponse throughout, align with SIC).
+        sic-classification-utils ``sa_rag_sic_code`` (raises when short_list is None).
 
         Args:
             industry_descr (str): The description of the industry.
             job_title (str, optional): The job title. Defaults to None.
             job_description (str, optional): The job description. Defaults to None.
-            expand_search_terms (bool, optional): Kept for API compatibility;
-                unused (short_list is required from caller). Defaults to True.
             code_digits (int, optional): The number of digits in the generated
                 SOC code. Defaults to 4.
             candidates_limit (int, optional): The maximum number of SOC code candidates
                 to consider. Defaults to 5.
             short_list (list[dict[Any, Any]], optional): A list of results from
                 embedding or vector store search (e.g. from soc-classification-vector-store).
-                Each dict should have "code" and "title" keys. When provided, the
-                embedding handler is not used.
+                Each dict should have "code" and "title" keys.
 
         Returns:
             SocResponse: The generated response to the query.
@@ -562,7 +557,6 @@ class ClassificationLLM:
             ValueError: If short_list is None.
 
         """
-        _ = expand_search_terms  # API compatibility; unused when short_list required
 
         def prep_call_dict(industry_descr, job_title, job_description, soc_codes):
             # Helper function to prepare the call dictionary
