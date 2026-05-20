@@ -21,7 +21,6 @@ from functools import lru_cache
 from typing import Any, Optional, Union
 
 import numpy as np
-from langchain_core.documents import Document
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_google_vertexai import ChatVertexAI
 from langchain_openai import ChatOpenAI
@@ -43,6 +42,7 @@ from occupational_classification_utils.llm.prompt import (
 )
 from occupational_classification_utils.models.response_model import (
     OpenFollowUp,
+    RagCandidate,
     SocResponse,
     UnambiguousResponse,
 )
@@ -208,7 +208,7 @@ class ClassificationLLM:
 
     def _prompt_candidate_list(
         self,
-        short_list: Union[list[dict], list[tuple[Document, float]]],  # list[dict],
+        short_list: list[dict],
         chars_limit: int = 14000,
         candidates_limit: int = config["llm"]["candidates_limit"],
         titles_limit: int = 3,
@@ -244,10 +244,7 @@ class ClassificationLLM:
         )
 
         for item in short_list:
-            if (
-                isinstance(item, dict)
-                and item["title"] not in a[item["code"][:code_digits]]
-            ):
+            if item["title"] not in a[item["code"][:code_digits]]:
                 a[item["code"][:code_digits]].append(item["title"])
 
         soc_candidates = [
@@ -400,7 +397,7 @@ class ClassificationLLM:
         industry_descr: str,
         job_title: Optional[str] = None,
         job_description: Optional[str] = None,
-        llm_output: Any = None,
+        llm_output: RagCandidate | None = None,
         correlation_id: Optional[str] = None,
     ) -> tuple[OpenFollowUp, dict[str, Any]]:
         """Formulate an open-ended follow-up (mirrors SIC formulate_open_question)."""
@@ -409,7 +406,7 @@ class ClassificationLLM:
             industry_descr_: str,
             job_title_: Optional[str],
             job_description_: Optional[str],
-            llm_output_: Any,
+            llm_output_: RagCandidate | None,
         ) -> dict[str, Any]:
             is_job_title_present = job_title_ is None or job_title_ in {"", " "}
             jt = "Unknown" if is_job_title_present else job_title_
