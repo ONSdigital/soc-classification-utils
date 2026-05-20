@@ -133,23 +133,17 @@ def test_model_name():
     assert ClassificationLLM().llm.model_name == "gemini-2.5-flash"
 
 
-def test_sa_soc_prompt_requires_followup_only_for_ambiguity():
-    """Prompt should request final code when a clear winner exists.
-
-    Note: this only asserts wording on the single-step `SA_SOC_PROMPT_RAG`
-    template. When SOC moves to two-step classification, remove
-    this test or replace it with checks on the new prompt(s).
-    """
+def test_sa_soc_prompt_rag_matches_sic_rag_followup_wording():
+    """SA_SOC_PROMPT_RAG follow-up and reasoning wording mirrors SA_SIC_PROMPT_RAG."""
     prompt_text = SA_SOC_PROMPT_RAG.template
     assert (
         "You must provide a follow up question that would help identify the exact coding based"
         in prompt_text
     )
-    assert "when the coding is ambiguous." in prompt_text
-    assert (
-        "When one SOC code is clearly the most likely match, return that final SOC code and"
-        in prompt_text
-    )
+    assert "on the list you respond with." in prompt_text
+    assert "Always provide reasoning for your decision." in prompt_text
+    assert "when the coding is ambiguous." not in prompt_text
+    assert "leave followup empty." not in prompt_text
 
 
 @pytest.mark.llm
