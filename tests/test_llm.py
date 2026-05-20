@@ -138,7 +138,7 @@ def test_prompt_candidate_strict_hierarchy_lookup(mock_vertex_ai):
 @pytest.mark.llm
 def test_prompt_candidate_include_all(prompt_candidate_soc, code, expected_output):
     """include_all adds Details and Includes (tasks) like SIC _prompt_candidate."""
-    result = prompt_candidate_soc._prompt_candidate(
+    result = prompt_candidate_soc._prompt_candidate(  # pylint: disable=protected-access
         code, ["Example title"], include_all=True
     )
     assert isinstance(result, str)
