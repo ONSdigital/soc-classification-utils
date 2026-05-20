@@ -616,9 +616,7 @@ class ClassificationLLM:
         except ValueError as err:
             logger.error(f"Error from chain, exit early: {err}", error=str(err))
             validated_answer = SocResponse(
-                codable=False,
                 followup="Follow-up question not available due to error.",
-                soc_candidates=[],
                 reasoning="Error from chain, exit early",
             )
             return validated_answer, short_list, call_dict
@@ -663,9 +661,7 @@ class ClassificationLLM:
                     f"ERROR parse_error=<{parse_error2}>, response=<{response.content}>"
                 )
                 validated_answer = SocResponse(
-                    codable=False,
                     followup="Follow-up question not available due to error.",
-                    soc_candidates=[],
                     reasoning=reasoning,
                 )
 
