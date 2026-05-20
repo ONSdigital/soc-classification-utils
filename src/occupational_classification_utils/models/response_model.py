@@ -279,18 +279,21 @@ class SurveyAssistSocResponse(BaseModel):
 
 
 class UnambiguousResponse(BaseModel):
-    """Response when evaluating unambiguous SOC unit-group assignment."""
+    """Represents a response model for classification code assignment (two-step SOC).
+
+    Same generic field names as SIC ``UnambiguousResponse`` for parity across schemes.
+    """
 
     codable: bool = Field(
         description=(
             "True only if enough information is provided to decide an unambiguous "
-            "four-digit SOC code, False otherwise."
+            "classification code, False otherwise."
         )
     )
     class_code: Optional[str] = Field(
         default=None,
         description=(
-            "Full four-digit SOC code assigned from respondent data. "
+            "Full classification code assigned from respondent data. "
             "Present if codable=True, None if codable=False."
         ),
     )
@@ -303,7 +306,7 @@ class UnambiguousResponse(BaseModel):
     )
     alt_candidates: list[RagCandidate] = Field(
         default_factory=list,
-        description="Shortlist of plausible SOC codes with likelihoods.",
+        description="Short list of possible classification codes with likelihoods.",
         min_length=1,
         max_length=10,
     )
