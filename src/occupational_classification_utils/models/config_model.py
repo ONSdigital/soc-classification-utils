@@ -19,10 +19,18 @@ class LLMConfig(TypedDict):
     Attributes:
         embedding_model_name (str): Name of the embedding model.
         db_dir (str): Directory for the database.
+        llm_model_name (str): Name of the generative LLM (Survey Assist classify path).
+        model_location (str): GCP region for Vertex AI.
+        code_digits (int): Number of digits in the SOC unit group code (four for SOC 2020).
+        candidates_limit (int): Maximum shortlist size passed to RAG / unambiguous prompts.
     """
 
     embedding_model_name: str
     db_dir: str
+    llm_model_name: str
+    model_location: str
+    code_digits: int
+    candidates_limit: int
 
 
 class LookupsConfig(TypedDict):
