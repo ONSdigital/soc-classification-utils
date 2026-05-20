@@ -36,7 +36,6 @@ async def classification_llm_with_soc_sa_rag_soc(
     mocker, mock_soc
 ):  # pylint: disable=W0621
     """ClassificationLLM with mocked ainvoke for sa_rag_soc_code."""
-    mock_llm = mock.MagicMock()  # noqa: F841
     mock_object_dict = {
         "codable": True,
         "followup": "Example follow-up from the LLM.",
@@ -326,7 +325,6 @@ async def classification_llm_with_soc_unambiguous(
     mocker, mock_soc
 ):  # pylint: disable=W0621
     """ClassificationLLM with mocked ainvoke for unambiguous_soc_code."""
-    mock_llm = mock.MagicMock()  # noqa: F841
     mock_object_dict = {
         "codable": False,
         "class_code": None,
@@ -406,7 +404,7 @@ async def test_unambiguous_soc_code_call_dict_job_title_correct(
 async def test_unambiguous_soc_code_followup_is_str(
     classification_llm_with_soc_unambiguous,
 ):
-    """reasoning on the unambiguous response is a string."""
+    """Reasoning on the unambiguous response is a string."""
     result = (
         await classification_llm_with_soc_unambiguous.unambiguous_soc_code(
             industry_descr="school",
