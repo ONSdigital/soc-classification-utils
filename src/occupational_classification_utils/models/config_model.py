@@ -5,28 +5,38 @@ configuration settings for various components of the system, such as language
 models and lookup tables.
 
 Classes:
-    LLMConfig: Configuration for language and embedding models.
+    EmbeddingConfig: Configuration for embedding model and vector store.
+    LLMConfig: Configuration for generative LLM classify defaults.
     LookupsConfig: Configuration for SOC-related lookup tables.
 """
 
 from typing import TypedDict
 
 
-class LLMConfig(TypedDict):
-    """Configuration for language and embedding models and location of
-    the vector store.
+class EmbeddingConfig(TypedDict):
+    """Configuration for embedding model and vector store.
 
     Attributes:
         embedding_model_name (str): Name of the embedding model.
         db_dir (str): Directory for the database.
-        llm_model_name (str): Name of the generative LLM (Survey Assist classify path).
+        k_matches (int): Number of matches to return in similarity search.
+    """
+
+    embedding_model_name: str
+    db_dir: str
+    k_matches: int
+
+
+class LLMConfig(TypedDict):
+    """Configuration for generative LLM classification (Survey Assist style).
+
+    Attributes:
+        llm_model_name (str): Name of the language model.
         model_location (str): GCP region for Vertex AI.
         code_digits (int): Number of digits in the SOC unit group code (four for SOC 2020).
         candidates_limit (int): Maximum shortlist size passed to RAG / unambiguous prompts.
     """
 
-    embedding_model_name: str
-    db_dir: str
     llm_model_name: str
     model_location: str
     code_digits: int
@@ -49,9 +59,11 @@ class FullConfig(TypedDict):
     """Full configuration model for the SOC classification.
 
     Attributes:
-        llm (LLMConfig): Configuration for language and embedding models.
+        embedding (EmbeddingConfig): Configuration for embedding model and vector store.
+        llm (LLMConfig): Configuration for generative LLM defaults.
         lookups (LookupsConfig): Configuration for SOC-related lookup tables.
     """
 
+    embedding: EmbeddingConfig
     llm: LLMConfig
     lookups: LookupsConfig
