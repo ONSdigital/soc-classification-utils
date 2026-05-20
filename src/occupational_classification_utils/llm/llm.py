@@ -440,9 +440,9 @@ class ClassificationLLM:
         chain = self.soc_prompt_openfollowup | self.llm
         logger.info(
             "LLM request sent - formulate_open_question",
-            job_title=truncate_identifier(call_dict["job_title"]),
-            job_description=truncate_identifier(call_dict["job_description"]),
-            industry_descr=truncate_identifier(call_dict["industry_descr"]),
+            job_title=truncate_identifier(job_title),
+            job_description=truncate_identifier(job_description),
+            industry_descr=truncate_identifier(industry_descr),
             correlation_id=correlation_id or "",
         )
         llm_start = time.perf_counter()
