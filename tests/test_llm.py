@@ -128,6 +128,23 @@ def test_prompt_candidate_strict_hierarchy_lookup(mock_vertex_ai):
     assert "Example from search" in out
 
 
+@pytest.mark.parametrize(
+    "code, expected_output",
+    [
+        ("1", ["Code", "Title", "Details"]),
+        ("1111", ["Code", "Title", "Details", "Includes"]),
+    ],
+)
+@pytest.mark.llm
+def test_prompt_candidate_include_all(prompt_candidate_soc, code, expected_output):
+    """include_all adds Details and Includes (tasks) like SIC _prompt_candidate."""
+    result = prompt_candidate_soc._prompt_candidate(
+        code, ["Example title"], include_all=True
+    )
+    assert isinstance(result, str)
+    assert all(part in result for part in expected_output)
+
+
 @pytest.mark.llm
 def test_model_name():
     assert ClassificationLLM().llm.model_name == "gemini-2.5-flash"
