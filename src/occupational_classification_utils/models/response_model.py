@@ -19,7 +19,9 @@ Constants:
 
 from typing import Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from occupational_classification_utils.utils.constants import MAX_ALT_CANDIDATES
 
 
 class SocCandidate(BaseModel):
@@ -270,4 +272,62 @@ class SurveyAssistSocResponse(BaseModel):
         description="""Step by step reasoning behind the most likely classification
         selected. Specifies the information used to assign the SOC code or any
         additional information required to assign a SOC code.""",
+    )
+
+
+class UnambiguousResponse(BaseModel):
+    """Response when evaluating unambiguous SOC unit-group assignment."""
+
+    codable: bool = Field(
+        description=(
+            "True only if enough information is provided to decide an unambiguous "
+            "four-digit SOC code, False otherwise."
+        )
+    )
+    class_code: Optional[str] = Field(
+        default=None,
+        description=(
+            "Full four-digit SOC code assigned from respondent data. "
+            "Present if codable=True, None if codable=False."
+        ),
+    )
+    class_descriptive: Optional[str] = Field(
+        default=None,
+        description=(
+            "Descriptive label for class_code. Present if codable=True, "
+            "None if codable=False."
+        ),
+    )
+    alt_candidates: list[RagCandidate] = Field(
+        default_factory=list,
+        description="Shortlist of plausible SOC codes with likelihoods.",
+        min_length=1,
+        max_length=10,
+    )
+    reasoning: str = Field(
+        description="Step by step reasoning behind the classification selected.",
+        min_length=50,
+    )
+
+    @field_validator("alt_candidates")
+    @classmethod
+    def validate_alt_candidates(cls, v: list[RagCandidate]) -> list[RagCandidate]:
+        """Validate alternative candidate count."""
+        if not 1 <= len(v) <= MAX_ALT_CANDIDATES:
+            raise ValueError("alt_candidates must contain between 1 and 10 items.")
+        return v
+
+
+class OpenFollowUp(BaseModel):
+    """Open-ended follow-up question when SOC cannot be assigned unambiguously."""
+
+    followup: Optional[str] = Field(
+        description=(
+            "Question to collect additional information for reliable SOC assignment."
+        ),
+        default="",
+    )
+    reasoning: str = Field(
+        description="Reasoning explaining how the follow-up question helps classification.",
+        default="",
     )
