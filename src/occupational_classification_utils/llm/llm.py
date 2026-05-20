@@ -15,13 +15,14 @@ Functions:
     (None at the module level)
 """
 
+import time
 from collections import defaultdict
 from functools import lru_cache
 from typing import Any, Optional, Union
 
 import numpy as np
-from langchain.output_parsers import PydanticOutputParser
 from langchain_core.documents import Document
+from langchain_core.output_parsers import PydanticOutputParser
 from langchain_google_vertexai import ChatVertexAI
 from langchain_openai import ChatOpenAI
 from occupational_classification.data_access.soc_data_access import (
@@ -36,13 +37,19 @@ from occupational_classification_utils.embed.embedding import get_config
 from occupational_classification_utils.llm.prompt import (
     FIX_PARSING_PROMPT,
     SA_SOC_PROMPT_RAG,
+    SOC_PROMPT_OPENFOLLOWUP,
     SOC_PROMPT_PYDANTIC,
+    SOC_PROMPT_UNAMBIGUOUS,
 )
-from occupational_classification_utils.models.response_model import SocResponse
+from occupational_classification_utils.models.response_model import (
+    OpenFollowUp,
+    SocResponse,
+    UnambiguousResponse,
+)
+from occupational_classification_utils.utils.constants import truncate_identifier
 
 logger = get_logger(__name__)
 config = get_config()
-DEFAULT_LLM_MODEL = "gemini-1.0-pro"
 
 
 # pylint: disable=too-many-instance-attributes
@@ -55,8 +62,9 @@ class ClassificationLLM:
     method and Retrieval Augmented Generation (RAG).
 
     Args:
-        model_name (str): Name of the model. Defaults to the value in the `config` file.
+        model_name (str): Name of the model. Defaults to ``config["llm"]["llm_model_name"]``.
             Used if no LLM object is passed.
+        model_location (str): Vertex AI region. Defaults to ``config["llm"]["model_location"]``.
         llm (LLM): LLM to use. Optional.
         max_tokens (int): Maximum number of tokens to generate. Defaults to 1600.
         temperature (float): Temperature of the LLM model. Defaults to 0.0.
@@ -66,7 +74,8 @@ class ClassificationLLM:
 
     def __init__(  # noqa: PLR0913
         self,
-        model_name: str = DEFAULT_LLM_MODEL,
+        model_name: str = config["llm"]["llm_model_name"],
+        model_location: str = config["llm"]["model_location"],
         llm: Optional[Union[ChatVertexAI, ChatOpenAI]] = None,
         max_tokens: int = 1600,
         temperature: float = 0.0,
@@ -80,12 +89,12 @@ class ClassificationLLM:
         if llm is not None:
             self.llm = llm
         elif model_name.startswith("text-") or model_name.startswith("gemini"):
-            # Mirror SIC: ChatVertexAI, europe-west1, thinking_budget=0
+            # Mirror SIC ClassificationLLM: ChatVertexAI, config region, thinking_budget=0
             self.llm = ChatVertexAI(
                 model_name=model_name,
                 max_output_tokens=max_tokens,
                 temperature=temperature,
-                location="europe-west1",
+                location=model_location,
                 model_kwargs={"thinking_budget": 0},  # Reduce latency
             )
         elif model_name.startswith("gpt"):
@@ -103,6 +112,8 @@ class ClassificationLLM:
         self.soc_meta = get_soc_meta(config["lookups"]["soc_structure"])
         self.soc_prompt = SOC_PROMPT_PYDANTIC
         self.sa_soc_prompt_rag = SA_SOC_PROMPT_RAG
+        self.soc_prompt_unambiguous = SOC_PROMPT_UNAMBIGUOUS
+        self.soc_prompt_openfollowup = SOC_PROMPT_OPENFOLLOWUP
         self.soc: Optional[SOC] = None
         self.verbose = verbose
 
@@ -199,9 +210,9 @@ class ClassificationLLM:
         self,
         short_list: Union[list[dict], list[tuple[Document, float]]],  # list[dict],
         chars_limit: int = 14000,
-        candidates_limit: int = 5,
+        candidates_limit: int = config["llm"]["candidates_limit"],
         titles_limit: int = 3,
-        code_digits: int = 4,
+        code_digits: int = config["llm"]["code_digits"],
     ) -> str:
         """Create candidate list for the prompt based on the given parameters.
 
@@ -256,14 +267,274 @@ class ClassificationLLM:
 
         return "\n".join(soc_candidates)
 
+    async def unambiguous_soc_code(  # noqa: PLR0913
+        self,
+        industry_descr: str,
+        semantic_search_results: list[dict],
+        job_title: Optional[str] = None,
+        job_description: Optional[str] = None,
+        candidates_limit: int = config["llm"]["candidates_limit"],
+        code_digits: int = config["llm"]["code_digits"],
+        correlation_id: Optional[str] = None,
+    ) -> tuple[UnambiguousResponse, dict[str, Any]]:
+        """Evaluate codability to a single four-digit SOC unit group (mirrors SIC)."""
+        soc_candidates = self._prompt_candidate_list(
+            short_list=semantic_search_results,
+            code_digits=code_digits,
+            candidates_limit=candidates_limit,
+        )
+
+        job_title = (
+            "Unknown" if (job_title is None or job_title in {"", " "}) else job_title
+        )
+        job_description = (
+            "Unknown"
+            if (job_description is None or job_description in {"", " "})
+            else job_description
+        )
+
+        call_dict = {
+            "industry_descr": industry_descr,
+            "job_title": job_title,
+            "job_description": job_description,
+            "soc_candidates": soc_candidates,
+        }
+
+        if self.verbose:
+            final_prompt = self.soc_prompt_unambiguous.format(**call_dict)
+            logger.debug(final_prompt)
+
+        chain = self.soc_prompt_unambiguous | self.llm
+        logger.info(
+            "LLM request sent - unambiguous_soc_code",
+            job_title=truncate_identifier(job_title),
+            job_description=truncate_identifier(job_description),
+            industry_descr=truncate_identifier(industry_descr),
+            correlation_id=correlation_id or "",
+        )
+        llm_start = time.perf_counter()
+
+        try:
+            response = await chain.ainvoke(call_dict, return_only_outputs=True)
+        except ValueError as err:
+            logger.error(
+                f"Error from chain, exit early: {err}",
+                error=str(err),
+                correlation_id=correlation_id or "",
+            )
+            validated_answer = UnambiguousResponse(
+                codable=False,
+                alt_candidates=[],
+                reasoning="Error from chain, exit early",
+            )
+            return validated_answer, call_dict
+
+        if self.verbose:
+            logger.debug(f"llm_response={response}")
+
+        parser = PydanticOutputParser(pydantic_object=UnambiguousResponse)  # type: ignore
+        try:
+            validated_answer = parser.parse(str(response.content))
+            alt_candidates_count = len(
+                getattr(validated_answer, "alt_candidates", []) or []
+            )
+            codable = bool(getattr(validated_answer, "codable", False))
+            selected_code = (
+                str(getattr(validated_answer, "class_code", "")) if codable else ""
+            )
+            llm_duration_ms = int((time.perf_counter() - llm_start) * 1000)
+            logger.info(
+                "LLM response received for unambiguous soc prompt",
+                codable=str(codable),
+                selected_code=selected_code,
+                alt_candidates_count=str(alt_candidates_count),
+                duration_ms=str(llm_duration_ms),
+                correlation_id=correlation_id or "",
+            )
+        except (ValueError, AttributeError) as parse_error:
+            logger.error(
+                f"Failed to parse response: {parse_error}",
+                error=str(parse_error),
+                correlation_id=correlation_id or "",
+            )
+            llm_duration_ms = int((time.perf_counter() - llm_start) * 1000)
+            logger.warning(
+                "Failed to parse response",
+                response_content=str(response.content),
+                duration_ms=str(llm_duration_ms),
+                correlation_id=correlation_id or "",
+            )
+            try:
+                fix_chain = FIX_PARSING_PROMPT | self.llm
+                response = await fix_chain.ainvoke(
+                    {
+                        "llm_output": str(response.content),
+                        "format_instructions": parser.get_format_instructions(),
+                    },
+                    return_only_outputs=True,
+                )
+                validated_answer = parser.parse(str(response.content))
+                logger.debug("Successfully parsed reformatted response.")
+            except (ValueError, AttributeError) as parse_error2:
+                logger.error(
+                    f"Failed to parse response again: {parse_error2}",
+                    error=str(parse_error2),
+                )
+                logger.warning(
+                    "Failed to parse response again",
+                    response_content=str(response.content),
+                )
+                reasoning = (
+                    f"ERROR parse_error=<{parse_error2}>, response=<{response.content}>"
+                )
+                validated_answer = UnambiguousResponse(
+                    codable=False,
+                    alt_candidates=[],
+                    reasoning=reasoning,
+                )
+
+        return validated_answer, call_dict
+
+    async def formulate_open_question(
+        self,
+        industry_descr: str,
+        job_title: Optional[str] = None,
+        job_description: Optional[str] = None,
+        llm_output: Any = None,
+        correlation_id: Optional[str] = None,
+    ) -> tuple[OpenFollowUp, dict[str, Any]]:
+        """Formulate an open-ended follow-up (mirrors SIC formulate_open_question)."""
+
+        def prep_call_dict(
+            industry_descr_: str,
+            job_title_: Optional[str],
+            job_description_: Optional[str],
+            llm_output_: Any,
+        ) -> dict[str, Any]:
+            is_job_title_present = job_title_ is None or job_title_ in {"", " "}
+            jt = "Unknown" if is_job_title_present else job_title_
+            is_job_description_present = (
+                job_description_ is None
+                or job_description_
+                in {
+                    "",
+                    " ",
+                }
+            )
+            jd = "Unknown" if is_job_description_present else job_description_
+            return {
+                "industry_descr": industry_descr_,
+                "job_title": jt,
+                "job_description": jd,
+                "llm_output": str(llm_output_),
+            }
+
+        call_dict = prep_call_dict(
+            industry_descr, job_title, job_description, llm_output
+        )
+
+        if self.verbose:
+            final_prompt = self.soc_prompt_openfollowup.format(**call_dict)
+            logger.debug(final_prompt)
+
+        chain = self.soc_prompt_openfollowup | self.llm
+        logger.info(
+            "LLM request sent - formulate_open_question",
+            job_title=truncate_identifier(call_dict["job_title"]),
+            job_description=truncate_identifier(call_dict["job_description"]),
+            industry_descr=truncate_identifier(call_dict["industry_descr"]),
+            correlation_id=correlation_id or "",
+        )
+        llm_start = time.perf_counter()
+
+        try:
+            response = await chain.ainvoke(call_dict, return_only_outputs=True)
+        except (ValueError, AttributeError) as err:
+            logger.error(
+                f"Error from LLMChain, exit early: {err}",
+                error=str(err),
+                correlation_id=correlation_id or "",
+            )
+            logger.warning(
+                "Error from LLMChain, exit early",
+                correlation_id=correlation_id or "",
+            )
+            validated_answer = OpenFollowUp(
+                followup=None,
+                reasoning="Error from LLMChain, exit early",
+            )
+            return validated_answer, call_dict
+
+        llm_duration_ms = int((time.perf_counter() - llm_start) * 1000)
+
+        parser = PydanticOutputParser(pydantic_object=OpenFollowUp)
+        try:
+            validated_answer = parser.parse(str(response.content))
+            has_followup = bool(getattr(validated_answer, "followup", None))
+            logger.info(
+                "LLM response received for open question prompt",
+                has_followup=str(has_followup),
+                duration_ms=str(llm_duration_ms),
+                correlation_id=correlation_id or "",
+            )
+        except (ValueError, AttributeError) as parse_error:
+            logger.error(
+                f"Failed to parse response: {parse_error}",
+                error=str(parse_error),
+                correlation_id=correlation_id or "",
+            )
+            logger.warning(
+                "Failed to parse response",
+                response_content=str(response.content),
+                correlation_id=correlation_id or "",
+            )
+            logger.info(
+                "LLM response received for open question prompt",
+                has_followup="False",
+                duration_ms=str(llm_duration_ms),
+                correlation_id=correlation_id or "",
+            )
+            try:
+                fix_chain = FIX_PARSING_PROMPT | self.llm
+                response = await fix_chain.ainvoke(
+                    {
+                        "llm_output": str(response.content),
+                        "format_instructions": parser.get_format_instructions(),
+                    },
+                    return_only_outputs=True,
+                )
+                validated_answer = parser.parse(str(response.content))
+                logger.debug("Successfully parsed reformatted response.")
+            except (ValueError, AttributeError) as parse_error2:
+                logger.error(
+                    f"Failed to parse response again: {parse_error2}",
+                    error=str(parse_error2),
+                )
+                logger.warning(
+                    "Failed to parse response again",
+                    response_content=str(response.content),
+                )
+                reasoning = (
+                    f"ERROR parse_error=<{parse_error2}>, response=<{response.content}>"
+                )
+                validated_answer = OpenFollowUp(
+                    followup=None,
+                    reasoning=reasoning,
+                )
+
+        if self.verbose:
+            logger.debug(f"{response=}")
+
+        return validated_answer, call_dict
+
     async def sa_rag_soc_code(  # noqa: PLR0913
         self,
         industry_descr: str,
         job_title: Optional[str] = None,
         job_description: Optional[str] = None,
         expand_search_terms: bool = True,
-        code_digits: int = 4,
-        candidates_limit: int = 5,
+        code_digits: int = config["llm"]["code_digits"],
+        candidates_limit: int = config["llm"]["candidates_limit"],
         short_list: Optional[list[dict[Any, Any]]] = None,
     ) -> tuple[SocResponse, Optional[list[dict[Any, Any]]], Optional[Any]]:
         """Generates a SOC classification based on respondent's data using RAG approach.
