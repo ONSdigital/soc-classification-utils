@@ -197,13 +197,12 @@ class ClassificationLLM:
         item = self.soc[code]
         txt = "{" + f"Code: {item.soc_code}, Title: {item.group_title}"
         txt += f", Example job_titles: {', '.join(job_titles)}"
-        # if include_all:
-        #     if item.soc_meta.group_description:
-        #         txt += f", Description: {item.soc_meta.group_description}"
-        #     if item.soc_meta.qualifications:
-        #         txt += f", Qualifications: {', '.join(item.soc_meta.entry_routes_and_quals)}"
         if include_all:
-            pass  # Full metadata optional; structure matches SIC _prompt_candidate
+            if item.group_description:
+                txt += f", Details: {item.group_description}"
+            tasks = item.tasks or self.soc_meta.get(code, {}).get("tasks") or []
+            if tasks:
+                txt += f", Includes: {', '.join(tasks)}"
         return txt + "}"
 
     def _prompt_candidate_list(
