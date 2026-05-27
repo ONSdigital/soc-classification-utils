@@ -215,10 +215,10 @@ async def test_llm_response_mocked_get_soc_code():
     ):
         result = await ClassificationLLM(model_name=MODEL_NAME).get_soc_code(
             job_title="teacher",
-            job_description="teach children",
-            level_of_education="degree",
-            manage_others=False,
-            industry_descr="school",
+            # job_description="teach children",
+            # level_of_education="degree",
+            # manage_others=False,
+            # industry_descr="school",
         )
 
     assert isinstance(result, SocResponse)
