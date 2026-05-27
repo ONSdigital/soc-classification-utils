@@ -209,19 +209,22 @@ If the output is not valid JSON, you must fix it without altering the intended m
 
 
 CORRECT_SPELLING_PROMPT = PromptTemplate.from_template(
-    """Correct spelling of this job title: {job_title}.
+    """Correct typos for this job title: {job_title}.
 
-    Accepted abbreviations and their meaning: {abbreviations}
-
-    Do NOT replace abbreviations if they appear in the provided list of abbreviations.
+    Keep the abbreviations and acronyms.
     Use British English.
 
-    Use provided list of abbreviations, only to correct spelling, keeping the abbreviations
-    when they appear in the job title provided.
-    
-    If the original job title contains an abbreviation, check if the meaning is correct,
-    and do NOT replace the abbreviation.
+    If the spelling is correct, return the original job title.
+    Job titles often contain a grade, such as "(B)", "(I)", "3", "4". Those should be kept.
 
-    When the spelling is correct, return the original job title.
+    Examples of abbreviations and acronyms that are acceptable:
+    - "(B)"
+    - "(I)"
+    - "3"
+    - {abbreviations}
+
+    Examples of typos that should be changed, when the context of the job title makes logical sense:
+    - "11" change to "1 to 1"
+    - "14016" change to "14-16"
     """
 )
