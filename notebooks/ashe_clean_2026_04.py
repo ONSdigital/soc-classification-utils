@@ -1,4 +1,4 @@
-# pylint: disable=C0103
+# pylint: disable=C0103, C0301
 """This is not a notebook. Run as a script.
 
 Allows to use LLMS to correct spelling of provided text strings.
@@ -6,6 +6,8 @@ Recognises ABBREVIATIONS commonly used in SOC.
 
 To execute, run:
     `python notebooks/ashe_clean_2026_04.py `
+
+Diasbling line-too-long: commentary and discussion.
 """
 
 import asyncio
@@ -26,7 +28,7 @@ knowledge_bucket = dotenv.get_key(".env", "KNOWLEDGE_BUCKET")
 
 output_folder = "notebooks/soc_data"
 file_prefix = "ashe_correct_spelling"
-file_suffix = "_2026_05_18"
+file_suffix = "_2026_05_19_sample4"
 
 BATCH_SIZE = 10
 
@@ -55,7 +57,9 @@ try:
 except FileNotFoundError:
     recent_batch_id = 0
 
-print(f"STARTING FROM {recent_batch_id} batch (row {recent_batch_id * BATCH_SIZE} out of {len(data)}).")
+print(
+    f"STARTING FROM {recent_batch_id} batch (row {recent_batch_id * BATCH_SIZE} out of {len(data)})."
+)
 
 
 ### Read the data ###
@@ -202,10 +206,13 @@ async def split_in_batches(df: pd.DataFrame):
             current_row = BATCH_SIZE * current_batch_id + k
             df.loc[current_row, "corrected_spelling"] = llm_response
 
-            if isinstance(df.loc[current_row, "corrected_spelling"], float):
-                df.loc[current_row, "corrected_spelling"] = df.loc[current_row, "label"]
-            elif "JOB TITLE" in df.loc[current_row, "corrected_spelling"]:
-                df.loc[current_row, "corrected_spelling"] = df.loc[current_row, "label"]
+            if (
+                isinstance(df.loc[current_row, "corrected_spelling"], float)
+                or "JOB TITLE" in df.loc[current_row, "corrected_spelling"]
+            ):
+                df.loc[current_row, "corrected_spelling"] = df.loc[
+                    current_row, "documents"
+                ]
 
         start_row = current_batch_id * BATCH_SIZE
 
@@ -237,16 +244,18 @@ async def split_in_batches(df: pd.DataFrame):
             )
 
         if current_batch_id + 1 == final_batch:
-            
+
             final_df = pd.read_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv")
             final_df = final_df.drop_duplicates(
                 subset=["corrected_spelling", "label"], keep="last", ignore_index=True
             )  # remove duplicates in the corrected spelling
 
-            final_df.to_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv", index=False)
+            final_df.to_csv(
+                f"{output_folder}/{file_prefix}{file_suffix}.csv", index=False
+            )
 
             print("FILE SAVED TO LOCAL")
-            
+
             # final_df.to_csv(f"{knowledge_bucket}wip_data/{file_prefix}{file_suffix}.csv", index=False)
             # print("SAVED TO BUCKET")
 
@@ -261,6 +270,8 @@ if not os.path.exists(f"{output_folder}/{file_prefix}{file_suffix}.csv"):
         f"{output_folder}/{file_prefix}{file_suffix}.csv", index=False
     )
 
+s = not_in_list.head(1000)
+asyncio.run(split_in_batches(s))
 
-asyncio.run(split_in_batches(not_in_list))
+# asyncio.run(split_in_batches(not_in_list))
 # asyncio.run(split_in_batches(in_list))

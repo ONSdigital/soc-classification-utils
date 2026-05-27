@@ -1,10 +1,12 @@
-# pylint: disable=C0103
+# pylint: disable=C0103, R0801
 """This is not a notebook. Run as a script.
 
 Allows to use LLM to assign SOC codes.
 
 To execute, run:
     `python notebooks/assign_soc_code_2026_03.py `
+
+Diasbling duplicate code - methods needs to be changed in other repos to reflect the change in data.
 """
 
 import asyncio
@@ -20,18 +22,14 @@ from occupational_classification_utils.llm.llm import ClassificationLLM
 ### Constants ###
 knowledge_bucket = dotenv.get_key(".env", "KNOWLEDGE_BUCKET")
 
-output_folder = "notebooks/soc_data"
+data_folder = "notebooks/soc_data"
 
-# file_name = "ashe_in_soc_index"
-file_name = "ashe_correct_spelling"
+file_name = "ashe_llm_soc_codes"
 
-input_file_name = "_2026_04_20"
-# input_file_name = "_clean"
+output_file_name = "_2026_05_19"
 
-output_file_name = "_llm_soc_codes_index_2026_04_30_attempt8"
-
-JOB_TITLE_COLUMN = "corrected_spelling"
-# JOB_TITLE_COLUMN = "documents"
+# JOB_TITLE_COLUMN = "corrected_spelling"
+JOB_TITLE_COLUMN = "documents"
 CODE_COLUMN = "label"
 
 BATCH_SIZE = 10
@@ -41,17 +39,17 @@ c_llm = ClassificationLLM("gemini-2.5-flash", verbose=False)
 
 ### Access data ###
 try:
-    data = pd.read_csv(f"{knowledge_bucket}{file_name}{input_file_name}.csv")
+    data = pd.read_csv(f"{knowledge_bucket}ASHE_classifai_soc_kb.csv")
     print("Database loaded from storage.")
 
 except FileNotFoundError:
     print("KNOWLEDGE_BUCKET not found in .env file. Please set it.")
-    data = pd.read_csv(f"{output_folder}/{file_name}{input_file_name}.csv")
+    data = pd.read_csv(f"{data_folder}/ASHE_classifai_soc_kb.csv")
     print("Database loaded from local.")
 
 try:
     with open(
-        f"{output_folder}/{file_name}{output_file_name}.json", encoding="utf-8"
+        f"{data_folder}/{file_name}{output_file_name}.json", encoding="utf-8"
     ) as file:
         recent_batch_id = json.load(file)["completed_batches"]
 except FileNotFoundError:
@@ -144,7 +142,7 @@ async def split_in_batches(document: pd.DataFrame):  # pylint: disable=R0914
             [
                 "documents",
                 "label",
-                "corrected_spelling",
+                # "corrected_spelling",
                 "codable",
                 "llm_soc_code",
                 "llm_soc_candidates",
@@ -153,18 +151,19 @@ async def split_in_batches(document: pd.DataFrame):  # pylint: disable=R0914
         ]
 
         rows_to_save.to_csv(
-            f"{output_folder}/{file_name}{output_file_name}.csv",
+            f"{data_folder}/{file_name}{output_file_name}.csv",
             mode="a",
             header=False,
             index=False,
         )
 
         with open(
-            f"{output_folder}/{file_name}{output_file_name}.json", "w", encoding="utf8"
+            f"{data_folder}/{file_name}{output_file_name}.json", "w", encoding="utf8"
         ) as json_file:
             json.dump(
                 {
                     "completed_batches": current_batch_id + 1,
+                    "total batches": final_batch,
                 },
                 json_file,
             )
@@ -176,18 +175,18 @@ async def split_in_batches(document: pd.DataFrame):  # pylint: disable=R0914
         #     print("SAVED TO BUCKET")
 
 
-if not os.path.exists(f"{output_folder}/{file_name}{output_file_name}.csv"):
+if not os.path.exists(f"{data_folder}/{file_name}{output_file_name}.csv"):
     all_columns = [
         "documents",
         "label",
-        "corrected_spelling",
+        # "corrected_spelling",
         "codable",
         "llm_soc_code",
         "llm_soc_candidates",
         "reasoning",
     ]
     pd.DataFrame(columns=all_columns).to_csv(
-        f"{output_folder}/{file_name}{output_file_name}.csv", index=False
+        f"{data_folder}/{file_name}{output_file_name}.csv", index=False
     )
 
 asyncio.run(split_in_batches(data))
