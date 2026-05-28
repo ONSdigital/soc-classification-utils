@@ -14,8 +14,6 @@ print("Creating embeddings index...")
 # Create the embeddings index
 embed = EmbeddingHandler()
 embed.embed_index(from_empty=True)  # Change from_empty=False if a vectore store exists
-print(
-    f"Embeddings index created with {embed._index_size} entries."  # pylint: disable=protected-access
-)
+print(f"Embeddings index created with {embed._index_size} entries.")
 results = embed.search_index(EXAMPLE_QUERY)
 print(f"Search results for '{EXAMPLE_QUERY}': {results}")

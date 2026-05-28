@@ -17,7 +17,7 @@ Functions:
 
 from collections import defaultdict
 from functools import lru_cache
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 from langchain.output_parsers import PydanticOutputParser
@@ -67,11 +67,11 @@ class ClassificationLLM:
     def __init__(  # noqa: PLR0913
         self,
         model_name: str = DEFAULT_LLM_MODEL,
-        llm: Optional[Union[ChatVertexAI, ChatOpenAI]] = None,
+        llm: ChatVertexAI | ChatOpenAI | None = None,
         max_tokens: int = 1600,
         temperature: float = 0.0,
         verbose: bool = True,
-        openai_api_key: Optional[SecretStr] = None,
+        openai_api_key: SecretStr | None = None,
     ):
         """Initialises the ClassificationLLM object."""
         logger.info(
@@ -103,7 +103,7 @@ class ClassificationLLM:
         self.soc_meta = get_soc_meta(config["lookups"]["soc_structure"])
         self.soc_prompt = SOC_PROMPT_PYDANTIC
         self.sa_soc_prompt_rag = SA_SOC_PROMPT_RAG
-        self.soc: Optional[SOC] = None
+        self.soc: SOC | None = None
         self.verbose = verbose
 
     @lru_cache  # noqa: B019
@@ -197,7 +197,7 @@ class ClassificationLLM:
 
     def _prompt_candidate_list(
         self,
-        short_list: Union[list[dict], list[tuple[Document, float]]],  # list[dict],
+        short_list: list[dict] | list[tuple[Document, float]],  # list[dict],
         chars_limit: int = 14000,
         candidates_limit: int = 5,
         titles_limit: int = 3,
@@ -259,13 +259,13 @@ class ClassificationLLM:
     async def sa_rag_soc_code(  # noqa: PLR0913
         self,
         industry_descr: str,
-        job_title: Optional[str] = None,
-        job_description: Optional[str] = None,
+        job_title: str | None = None,
+        job_description: str | None = None,
         expand_search_terms: bool = True,
         code_digits: int = 4,
         candidates_limit: int = 5,
-        short_list: Optional[list[dict[Any, Any]]] = None,
-    ) -> tuple[SocResponse, Optional[list[dict[Any, Any]]], Optional[Any]]:
+        short_list: list[dict[Any, Any]] | None = None,
+    ) -> tuple[SocResponse, list[dict[Any, Any]] | None, Any | None]:
         """Generates a SOC classification based on respondent's data using RAG approach.
 
         Caller must provide short_list (e.g. from vector store API). Mirrors

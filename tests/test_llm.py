@@ -28,7 +28,7 @@ LOCATION = "europe-west2"
 
 # Mock LLM connections
 @pytest.fixture
-async def classification_llm_with_soc_sa_rag_soc():
+def classification_llm_with_soc_sa_rag_soc():
     """ClassificationLLM with mocked ainvoke (async invoke) for sa_rag_soc_code
     (mirrors SIC classification_llm_with_sic_sa_rag_sic).
 
@@ -271,13 +271,15 @@ async def test_sa_rag_soc_code_call_dict_job_title_normalised(
             "code": "2314",
         }
     ]
-    _response, _short_list, call_dict = (
-        await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
-            industry_descr="school",
-            job_title=title,
-            job_description="teach children",
-            short_list=short_list,
-        )
+    (
+        _response,
+        _short_list,
+        call_dict,
+    ) = await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
+        industry_descr="school",
+        job_title=title,
+        job_description="teach children",
+        short_list=short_list,
     )
     assert call_dict["job_title"] == expected_job_title
 
@@ -294,13 +296,15 @@ async def test_sa_rag_soc_code_followup_is_str(
             "code": "2314",
         }
     ]
-    response, _short_list, _call_dict = (
-        await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
-            industry_descr="school",
-            job_title="teacher",
-            job_description="teach children",
-            short_list=short_list,
-        )
+    (
+        response,
+        _short_list,
+        _call_dict,
+    ) = await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
+        industry_descr="school",
+        job_title="teacher",
+        job_description="teach children",
+        short_list=short_list,
     )
     assert isinstance(response.followup, str) or response.followup is None
 
@@ -312,7 +316,7 @@ async def test_sa_rag_soc_code_short_list_is_none_raise_value_error(
     """sa_rag_soc_code should raise ValueError when short_list is None."""
     with pytest.raises(
         ValueError,
-        match="Short list is None - list provided from embedding search.",
+        match=r"Short list is None - list provided from embedding search\.",
     ):
         await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
             industry_descr="school",

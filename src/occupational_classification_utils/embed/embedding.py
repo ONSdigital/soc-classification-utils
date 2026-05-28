@@ -8,12 +8,12 @@ and performing similarity searches.
 # Optional but doesn't hurt
 import logging
 import os
-import sqlite3  # noqa: F401 # pylint: disable=unused-import
+import sqlite3  # noqa: F401
 
 # Docker Image may have old sqlite3 version for ChromaDB
 # Top of your module (before any langchain or chroma import)
 import uuid
-from typing import Any, Optional, Union
+from typing import Any
 
 from autocorrect import Speller
 from langchain_chroma import Chroma
@@ -102,7 +102,7 @@ class EmbeddingHandler:
     def __init__(
         self,
         embedding_model_name: str = config["llm"]["embedding_model_name"],
-        db_dir: str = config["llm"]["db_dir"],
+        db_dir: str | None = config["llm"]["db_dir"],
         k_matches: int = 20,
     ):
         """Initializes the EmbeddingHandler.
@@ -155,7 +155,7 @@ class EmbeddingHandler:
         """
         if self.db_dir is None:
             logger.warning("No db_dir provided; using in-memory vector store.")
-            return Chroma(  # pylint: disable=not-callable
+            return Chroma(
                 embedding_function=self.embeddings,
                 collection_metadata={"hnsw:space": "l2"},
             )
@@ -169,7 +169,7 @@ class EmbeddingHandler:
             logger.debug("Writable: %s", os.access(self.db_dir, os.W_OK))
 
         try:
-            chroma = Chroma(  # pylint: disable=not-callable
+            chroma = Chroma(
                 embedding_function=self.embeddings,
                 persist_directory=self.db_dir,
                 collection_metadata={"hnsw:space": "l2"},
@@ -204,7 +204,7 @@ class EmbeddingHandler:
 
     def _docs_ids_from_hierarchy(
         self,
-        soc: Optional[SOC],
+        soc: SOC | None,
         soc_index_file: Any,
         soc_structure_file: Any,
     ) -> tuple[list[Document], list[str], Any, Any]:
@@ -243,10 +243,10 @@ class EmbeddingHandler:
             ids.append(str(uuid.uuid3(uuid.NAMESPACE_URL, id_seed)))
         return docs, ids, soc_index_file, soc_structure_file
 
-    def embed_index(  # pylint: disable=too-many-arguments, too-many-positional-arguments, too-many-locals
+    def embed_index(
         self,
         from_empty: bool = True,
-        soc: Optional[SOC] = None,
+        soc: SOC | None = None,
         file_object=None,
         soc_index_file=None,
         soc_structure_file=None,
@@ -278,9 +278,7 @@ class EmbeddingHandler:
         )
         if from_empty:
             logger.info("Dropping existing vector store content.")
-            self.vector_store._client.delete_collection(  # pylint: disable=protected-access
-                "langchain"
-            )
+            self.vector_store._client.delete_collection("langchain")
             self.vector_store = self._create_vector_store()
 
         if file_object is not None:
@@ -301,11 +299,10 @@ class EmbeddingHandler:
         for batch_docs, batch_ids in zip(
             split_into_batches(docs, MAX_BATCH_SIZE),
             split_into_batches(ids, MAX_BATCH_SIZE),
+            strict=True,
         ):
             self.vector_store.add_documents(batch_docs, ids=batch_ids)
-        self._index_size = self.vector_store._client.get_collection(  # pylint: disable=protected-access
-            "langchain"
-        ).count()
+        self._index_size = self.vector_store._client.get_collection("langchain").count()
 
         logger.debug(
             "Inserted %s entries into vector embedding database.", f"{len(docs):,}"
@@ -325,7 +322,7 @@ class EmbeddingHandler:
 
     def search_index(
         self, query: str, return_dicts: bool = True
-    ) -> Union[list[dict], list[tuple[Document, float]]]:
+    ) -> list[dict] | list[tuple[Document, float]]:
         """Returns k document chunks with the highest relevance to the query.
 
         Args:
@@ -335,7 +332,7 @@ class EmbeddingHandler:
                 dictionaries. Otherwise, returns document tuples. Defaults to True.
 
         Returns:
-            Union[list[dict], list[tuple[Document, float]]]: List of top k index entries
+            list[dict] | list[tuple[Document, float]]: List of top k index entries
             by relevance.
         """
         top_matches = self.vector_store.similarity_search_with_score(
