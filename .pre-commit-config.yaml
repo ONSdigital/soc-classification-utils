@@ -1,21 +1,40 @@
-# Added pre-commit to check if __init__.py is added to the src folder
-# install using `pre-commit install`
-# skip using `git commit -m "message" --no-verify`
-default_stages: [pre-commit]
+# Install using `pre-commit install`
+# Skip using `git commit -m "message" --no-verify`
+default_stages: [ pre-commit ]
 
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
-    hooks:
-      - id: check-ast
-      - id: check-vcs-permalinks
-      - id: check-yaml
-      - id: debug-statements
-      - id: check-merge-conflict
-  - repo: local
-    hooks:
-      - id: forbid-new-init
-        name: Check if __init__.py is added to the src folder
-        entry: python
-        language: fail
-        files: ^src/__init__.py$
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v6.0.0
+  hooks:
+  - id: check-ast
+  - id: check-vcs-permalinks
+  - id: debug-statements
+  - id: check-merge-conflict
+  - id: trailing-whitespace
+  - id: end-of-file-fixer
+  - id: check-yaml
+  - id: check-json
+  - id: check-added-large-files
+    args: [ "--maxkb=500" ]
+  - id: detect-private-key
+  - id: check-case-conflict
+
+- repo: https://github.com/Yelp/detect-secrets
+  rev: v1.5.0
+  hooks:
+  - id: detect-secrets
+
+- repo: local
+  hooks:
+  - id: make-check-python
+    name: make check-python
+    entry: make check-python
+    language: system
+    types: [ python ]
+    pass_filenames: false
+
+  - id: forbid-new-init
+    name: Check if __init__.py is added to the src folder
+    entry: python
+    language: fail
+    files: ^src/__init__.py$

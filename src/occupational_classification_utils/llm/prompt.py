@@ -28,10 +28,10 @@ from occupational_classification.data_access.soc_data_access import load_soc_ind
 
 from occupational_classification_utils.embed.embedding import get_config
 from occupational_classification_utils.models.response_model import (
+    OpenFollowUp,
     RagResponse,
     SocResponse,
     UnambiguousResponse,
-    OpenFollowUp,
 )
 
 config = get_config()
@@ -95,7 +95,9 @@ You must return the subset list of possible soc codes (UK SOC 2020 codes provide
 that might match with a confidence score for each.
 
 You must provide a follow up question that would help identify the exact coding based
-on the list you respond with.
+on the list you respond with when the coding is ambiguous.
+When one SOC code is clearly the most likely match, return that final SOC code and
+leave followup empty.
 
 ===Respondent Data===
 - Company's main activity: {industry_descr}

@@ -19,6 +19,7 @@ from occupational_classification.data_access.soc_data_access import (
 from occupational_classification.hierarchy.soc_hierarchy import load_hierarchy
 
 from occupational_classification_utils.llm.llm import ClassificationLLM
+from occupational_classification_utils.llm.prompt import SA_SOC_PROMPT_RAG
 from occupational_classification_utils.models.response_model import SocResponse
 
 MODEL_NAME = "gemini-2.5-flash"
@@ -27,7 +28,7 @@ LOCATION = "europe-west2"
 
 # Mock LLM connections
 @pytest.fixture
-async def classification_llm_with_soc_sa_rag_soc():
+def classification_llm_with_soc_sa_rag_soc():
     """ClassificationLLM with mocked ainvoke (async invoke) for sa_rag_soc_code
     (mirrors SIC classification_llm_with_sic_sa_rag_sic).
 
@@ -126,6 +127,25 @@ def test_prompt_candidate_strict_hierarchy_lookup_matches_sic_shape(mock_vertex_
 @pytest.mark.llm
 def test_model_name():
     assert ClassificationLLM().llm.model_name == "gemini-1.0-pro"
+
+
+def test_sa_soc_prompt_requires_followup_only_for_ambiguity():
+    """Prompt should request final code when a clear winner exists.
+
+    Note: this only asserts wording on the single-step `SA_SOC_PROMPT_RAG`
+    template. When SOC moves to two-step classification (SIC-style), remove
+    this test or replace it with checks on the new prompt(s).
+    """
+    prompt_text = SA_SOC_PROMPT_RAG.template
+    assert (
+        "You must provide a follow up question that would help identify the exact coding based"
+        in prompt_text
+    )
+    assert "when the coding is ambiguous." in prompt_text
+    assert (
+        "When one SOC code is clearly the most likely match, return that final SOC code and"
+        in prompt_text
+    )
 
 
 @pytest.mark.llm
@@ -251,13 +271,15 @@ async def test_sa_rag_soc_code_call_dict_job_title_normalised(
             "code": "2314",
         }
     ]
-    _response, _short_list, call_dict = (
-        await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
-            industry_descr="school",
-            job_title=title,
-            job_description="teach children",
-            short_list=short_list,
-        )
+    (
+        _response,
+        _short_list,
+        call_dict,
+    ) = await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
+        industry_descr="school",
+        job_title=title,
+        job_description="teach children",
+        short_list=short_list,
     )
     assert call_dict["job_title"] == expected_job_title
 
@@ -274,13 +296,15 @@ async def test_sa_rag_soc_code_followup_is_str(
             "code": "2314",
         }
     ]
-    response, _short_list, _call_dict = (
-        await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
-            industry_descr="school",
-            job_title="teacher",
-            job_description="teach children",
-            short_list=short_list,
-        )
+    (
+        response,
+        _short_list,
+        _call_dict,
+    ) = await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
+        industry_descr="school",
+        job_title="teacher",
+        job_description="teach children",
+        short_list=short_list,
     )
     assert isinstance(response.followup, str) or response.followup is None
 
@@ -292,7 +316,7 @@ async def test_sa_rag_soc_code_short_list_is_none_raise_value_error(
     """sa_rag_soc_code should raise ValueError when short_list is None."""
     with pytest.raises(
         ValueError,
-        match="Short list is None - list provided from embedding search.",
+        match=r"Short list is None - list provided from embedding search\.",
     ):
         await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
             industry_descr="school",

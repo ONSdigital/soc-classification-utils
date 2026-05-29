@@ -89,11 +89,14 @@ def test_embedding_handler_initialisation(model_name, expected_class):
         model_name (str): name of embedding to be used in English.
         expected_class (str): name of embedding.
     """
-    with patch(
-        "occupational_classification_utils.embed.embedding.CustomVertexAIEmbeddings"
-    ) as mock_vertex, patch(
-        "occupational_classification_utils.embed.embedding.HuggingFaceEmbeddings"
-    ) as mock_hf:
+    with (
+        patch(
+            "occupational_classification_utils.embed.embedding.CustomVertexAIEmbeddings"
+        ) as mock_vertex,
+        patch(
+            "occupational_classification_utils.embed.embedding.HuggingFaceEmbeddings"
+        ) as mock_hf,
+    ):
         EmbeddingHandler(embedding_model_name=model_name, db_dir=None)
 
         if expected_class == "HuggingFaceEmbeddings":
@@ -116,12 +119,10 @@ def test_docs_ids_from_hierarchy_use_code_and_text_for_unique_ids():
         ]
     )
 
-    docs, ids, _, _ = (
-        handler._docs_ids_from_hierarchy(  # pylint: disable=protected-access
-            soc=mock_soc,
-            soc_index_file=("pkg", "index.xlsx"),
-            soc_structure_file=("pkg", "structure.xlsx"),
-        )
+    docs, ids, _, _ = handler._docs_ids_from_hierarchy(
+        soc=mock_soc,
+        soc_index_file=("pkg", "index.xlsx"),
+        soc_structure_file=("pkg", "structure.xlsx"),
     )
 
     assert len(docs) == 2  # noqa: PLR2004

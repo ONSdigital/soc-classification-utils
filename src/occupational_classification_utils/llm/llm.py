@@ -37,11 +37,16 @@ from occupational_classification_utils.embed.embedding import get_config
 from occupational_classification_utils.llm.prompt import (
     FIX_PARSING_PROMPT,
     SA_SOC_PROMPT_RAG,
+    SOC_PROMPT_OPENFOLLOWUP,
     SOC_PROMPT_PYDANTIC,
     SOC_PROMPT_UNAMBIGUOUS,
-    SOC_PROMPT_OPENFOLLOWUP,
 )
-from occupational_classification_utils.models.response_model import SocResponse, UnambiguousResponse
+from occupational_classification_utils.models.response_model import (
+    OpenFollowUp,
+    SocCandidate,
+    SocResponse,
+    UnambiguousResponse,
+)
 
 logger = get_logger(__name__)
 config = get_config()
@@ -405,7 +410,6 @@ class ClassificationLLM:
 
         return validated_answer, short_list, call_dict
 
-
     async def unambiguous_soc_code(  # noqa: PLR0913
         self,
         industry_descr: str,
@@ -413,8 +417,8 @@ class ClassificationLLM:
         job_title: Optional[str] = None,
         job_description: Optional[str] = None,
         level_of_education: Optional[str] = None,
-        candidates_limit: int = config["llm"]["candidates_limit"],
-        code_digits: int = config["llm"]["code_digits"],
+        candidates_limit: int = 5,
+        code_digits: int = 4,
         correlation_id: Optional[str] = None,
     ) -> tuple[UnambiguousResponse, Optional[Any]]:
         """Evaluates codability to a single 4-digit SOC code based on respondent's data.
@@ -428,7 +432,7 @@ class ClassificationLLM:
             candidates_limit (int, optional): The maximum number of candidates
                 to include in the prompt. Defaults to 5.
             code_digits (int, optional): The number of digits to consider from
-                the code for filtering candidates. Defaults to 5.
+                the code for filtering candidates. Defaults to 4.
             correlation_id (str, optional): Optional correlation ID for request tracking.
 
         Returns:
@@ -455,7 +459,9 @@ class ClassificationLLM:
             else job_description
         )
         level_of_education = (
-            "Unknown" if (level_of_education is None or level_of_education in {"", " "}) else level_of_education
+            "Unknown"
+            if (level_of_education is None or level_of_education in {"", " "})
+            else level_of_education
         )
 
         call_dict = {
@@ -474,7 +480,7 @@ class ClassificationLLM:
 
         # Log LLM request sent # Not logging yet - needs to create/import truncate_identifier.
         # logger.info(
-        #     "LLM request sent - unambiguous_sic_code",
+        #     "LLM request sent - unambiguous_soc_code",
         #     job_title=truncate_identifier(job_title),
         #     job_description=truncate_identifier(job_description),
         #     level_of_education=truncate_identifier(level_of_education),
@@ -515,7 +521,7 @@ class ClassificationLLM:
             )
             llm_duration_ms = int((time.perf_counter() - llm_start) * 1000)
             logger.info(
-                "LLM response received for unambiguous sic prompt",
+                "LLM response received for unambiguous soc prompt",
                 codable=str(codable),
                 selected_code=selected_code,
                 alt_candidates_count=str(alt_candidates_count),
@@ -569,13 +575,13 @@ class ClassificationLLM:
 
         return validated_answer, call_dict
 
-    async def formulate_open_question(
+    async def formulate_open_question(  # noqa: PLR0913
         self,
         industry_descr: str,
         job_title: str | None = None,
         job_description: str | None = None,
         level_of_education: str | None = None,
-        llm_output: SicCandidate | None = None,
+        llm_output: SocCandidate | None = None,
         correlation_id: str | None = None,
     ) -> tuple[OpenFollowUp, Any]:
         """Formulates an open-ended question using respondent data and survey design guidelines.
@@ -585,7 +591,7 @@ class ClassificationLLM:
             job_title (str, optional): The job title. Defaults to None.
             job_description (str, optional): The job description. Defaults to None.
             level_of_education (str, optional): The level od education. Defaults to None.
-            llm_output (SicCandidate, optional): The response from the LLM model.
+            llm_output (SocCandidate, optional): The response from the LLM model.
             correlation_id (str, optional): Optional correlation ID for request tracking.
 
         Returns:
@@ -598,7 +604,9 @@ class ClassificationLLM:
 
         """
 
-        def prep_call_dict(industry_descr, job_title, job_description, level_of_education, llm_output):
+        def prep_call_dict(
+            industry_descr, job_title, job_description, level_of_education, llm_output
+        ):
             # Helper function to prepare the call dictionary
             is_job_title_present = job_title is None or job_title in {"", " "}
             job_title = "Unknown" if is_job_title_present else job_title
@@ -611,7 +619,9 @@ class ClassificationLLM:
                 "Unknown" if is_job_description_present else job_description
             )
             level_of_education = (
-                "Unknown" if (level_of_education is None or level_of_education in {"", " "}) else level_of_education
+                "Unknown"
+                if (level_of_education is None or level_of_education in {"", " "})
+                else level_of_education
             )
 
             call_dict = {

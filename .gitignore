@@ -3,6 +3,33 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# ignore data files
+*.csv
+*.xls
+*.xlsx
+*.json
+*.png
+*.html
+*.parquet
+*.pkl
+*.dat
+*.npy
+*.npz
+*.zip
+*.gz
+/data/
+
+# ignore temporary files
+*.tmp
+*.aux
+tmp/
+temp/
+
+# ignore pictures and graphs of data
+*.jpg
+*.pdf
+*.bmp
+
 # C extensions
 *.so
 
@@ -77,22 +104,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
-# Disallow notebooks
-*.ipynb 
-
-# Excel datafiles & workbooks & macros
-*.xlsx
-*.xls
-*.xlsm
-*.xlsb
-*.xltx
-*.xltm
-*.xlt
-*.xlam
-*.xla
-*.xlw
-*.xlr
-*.xlc
+*.ipynb
 
 # IPython
 profile_default/
@@ -188,3 +200,9 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+src/occupational_classification_utils/data/vector_store/*
+notebooks/temp/
+
+.vscode
+.DS_Store
