@@ -16,11 +16,18 @@ from occupational_classification.data_access.soc_data_access import (
 from occupational_classification.data_access.soc_data_access import (
     load_soc_structure as lib_load_soc_structure,
 )
-from occupational_classification.hierarchy.soc_hierarchy import load_hierarchy
+from occupational_classification.hierarchy.soc_hierarchy import (
+    SOC,
+    SocNode,
+    load_hierarchy,
+)
 
 from occupational_classification_utils.llm.llm import ClassificationLLM
 from occupational_classification_utils.llm.prompt import SA_SOC_PROMPT_RAG
-from occupational_classification_utils.models.response_model import SocResponse
+from occupational_classification_utils.models.response_model import (
+    OpenFollowUp,
+    SocResponse,
+)
 
 MODEL_NAME = "gemini-2.5-flash"
 LOCATION = "europe-west2"
@@ -76,6 +83,32 @@ def mock_vertex_ai():
         mock_instance = mock_client.return_value
         mock_instance.generate_content.return_value = mock.Mock()
         yield
+
+
+@pytest.fixture
+def prompt_candidate_soc():
+    nodes = [
+        SocNode(
+            soc_code="1234",
+            group_title="grouptitle1234",
+            group_description="description12345",
+        ),
+        SocNode(
+            soc_code="2345",
+            group_title="grouptitle2345",
+            group_description="description2345",
+        ),
+    ]
+    lookup = {}
+    for node in nodes:
+        lookup[str(node.soc_code)] = node
+
+    print("LOOKUP", lookup)
+
+    soc = SOC(nodes=nodes, lookup=lookup)
+    llm_class = ClassificationLLM(model_name=MODEL_NAME)
+    llm_class.soc = soc
+    return llm_class
 
 
 @pytest.mark.parametrize(
@@ -324,3 +357,29 @@ async def test_sa_rag_soc_code_short_list_is_none_raise_value_error(
             job_description="teach children",
             short_list=None,
         )
+
+
+@pytest.mark.llm
+async def test_llm_response_mocked_formulate_open_question(
+    mocker, prompt_candidate_soc
+):
+    mock_object_dict = {"class_code": "", "class_descriptive": "", "likelihood": 0.5}
+    mock_object_json = json.dumps(mock_object_dict)
+
+    mock_message = mocker.Mock(spec=AIMessage)
+    mock_message.content = mock_object_json
+
+    mock_patcher = mocker.patch(  # noqa: F841
+        "occupational_classification_utils.llm.llm.ChatVertexAI.ainvoke",
+        return_value=mock_message,
+    )
+
+    result = await prompt_candidate_soc.formulate_open_question(
+        industry_descr="",
+        job_title="",
+        job_description="",
+        level_of_education="",
+        llm_output="",
+    )
+    assert isinstance(result[0], OpenFollowUp)
+    assert isinstance(result[1], dict)
