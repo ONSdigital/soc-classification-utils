@@ -77,17 +77,17 @@ class SocResponse(BaseModel):
         SOC code, False otherwise.""",
         default=False,
     )
-    followup: Optional[str] = Field(
+    followup: str | None = Field(
         description="""Question to ask user in order to collect additional information
         to enable reliable SOC assignment. Empty if codable=True.""",
         default=None,
     )
-    soc_code: Optional[str] = Field(
+    soc_code: str | None = Field(
         description="""Full four digit SOC code assigned based on provided job title,
         description, etc. Empty if codable=False.""",
         default=None,
     )
-    soc_descriptive: Optional[str] = Field(
+    soc_descriptive: str | None = Field(
         description="""Descriptive label of the SOC category associated with soc_code
         if provided. Empty if codable=False.""",
         default=None,
@@ -97,7 +97,7 @@ class SocResponse(BaseModel):
         with their descriptive label and estimated likelihood.""",
         default_factory=list,
     )
-    soc_code_2digits: Optional[str] = Field(
+    soc_code_2digits: str | None = Field(
         description="""First two digits of the hierarchical SOC code assigned.
         This field should be non empty if the larger (two-digit) group of SOC codes
         can be determined even in cases where additional information is needed to
@@ -204,17 +204,17 @@ class RagResponse(BaseModel):
         description="""True if enough information is provided to decide
         classification code, False otherwise."""
     )
-    followup: Optional[str] = Field(
+    followup: str | None = Field(
         description="""Question to ask user in order to collect additional information
         to enable reliable classification assignment. Empty if codable=True.""",
         default=None,
     )
-    class_code: Optional[str] = Field(
+    class_code: str | None = Field(
         description="""Full classification code (to the required number of digits)
         assigned based on provided respondent's data. Empty if codable=False.""",
         default=None,
     )
-    class_descriptive: Optional[str] = Field(
+    class_descriptive: str | None = Field(
         description="""Descriptive label of the classification category associated
         with class_code if provided. Empty if codable=False.""",
         default=None,
@@ -252,26 +252,26 @@ class SurveyAssistSocResponse(BaseModel):
             information required to assign a SOC code.
     """
 
-    followup: Optional[str] = Field(
+    followup: str | None = Field(
         description="""Question to ask user in order to collect additional information
         to enable reliable classification assignment.""",
         default="",
     )
-    soc_code: Optional[str] = Field(
+    soc_code: str | None = Field(
         description="""Full classification code (to the required number of digits)
         of the most likely canddate assigned based on provided respondent's data.""",
         default="",
     )
-    soc_descriptive: Optional[str] = Field(
+    soc_descriptive: str | None = Field(
         description="""Descriptive label of the most likely classification category
         associated with soc_code.""",
         default="",
     )
-    soc_candidates: Optional[list[SocCandidate]] = Field(
+    soc_candidates: list[SocCandidate] | None = Field(
         description="""Short list of less than ten possible or alternative SOC codes
         that may be applicable with their descriptive label and estimated likelihood."""
     )
-    reasoning: Optional[str] = Field(
+    reasoning: str | None = Field(
         description="""Step by step reasoning behind the most likely classification
         selected. Specifies the information used to assign the SOC code or any
         additional information required to assign a SOC code.""",

@@ -79,7 +79,7 @@ ${\small\color{red}\text{TODO}}$
 
 ### Code Quality
 
-Code quality and static analysis will be enforced using isort, black, ruff, mypy and pylint. Security checking will be enhanced by running bandit.
+Code quality and static analysis will be enforced using ruff and mypy. Security checking will be enhanced by running bandit.
 
 To check the code quality, but only report any errors without auto-fix run:
 

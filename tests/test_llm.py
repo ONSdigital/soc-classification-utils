@@ -32,9 +32,7 @@ LOCATION = "europe-west2"
 
 # Mock LLM connections
 @pytest.fixture
-async def classification_llm_with_soc_sa_rag_soc(
-    mocker, mock_soc
-):  # pylint: disable=W0621
+def classification_llm_with_soc_sa_rag_soc():
     """ClassificationLLM with mocked ainvoke for sa_rag_soc_code."""
     mock_object_dict = {
         "codable": True,
@@ -55,16 +53,14 @@ async def classification_llm_with_soc_sa_rag_soc(
         ],
         "reasoning": "Example reasoning for the classification.",
     }
-    mock_object_json = json.dumps(mock_object_dict)
-    mock_message = mocker.Mock(spec=AIMessage)
-    mock_message.content = mock_object_json
-    mocker.patch(
+    mock_message = mock.MagicMock(spec=AIMessage)
+    mock_message.content = json.dumps(mock_object_dict)
+    with mock.patch(
         "occupational_classification_utils.llm.llm.ChatVertexAI.ainvoke",
         return_value=mock_message,
-    )
-    llm_class = ClassificationLLM(model_name=MODEL_NAME)
-    llm_class.soc = mock_soc
-    return llm_class
+    ):
+        llm_class = ClassificationLLM(model_name=MODEL_NAME)
+        yield llm_class
 
 
 # Test initialisation
@@ -280,13 +276,15 @@ async def test_sa_rag_soc_code_call_dict_job_title_normalised(
             "code": "1111",
         }
     ]
-    _response, _short_list, call_dict = (
-        await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
-            industry_descr="school",
-            job_title=title,
-            job_description="teach children",
-            short_list=short_list,
-        )
+    (
+        _response,
+        _short_list,
+        call_dict,
+    ) = await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
+        industry_descr="school",
+        job_title=title,
+        job_description="teach children",
+        short_list=short_list,
     )
     assert call_dict["job_title"] == expected_job_title
 
@@ -303,13 +301,15 @@ async def test_sa_rag_soc_code_followup_is_str(
             "code": "1111",
         }
     ]
-    response, _short_list, _call_dict = (
-        await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
-            industry_descr="school",
-            job_title="teacher",
-            job_description="teach children",
-            short_list=short_list,
-        )
+    (
+        response,
+        _short_list,
+        _call_dict,
+    ) = await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
+        industry_descr="school",
+        job_title="teacher",
+        job_description="teach children",
+        short_list=short_list,
     )
     assert isinstance(response.followup, str) or response.followup is None
 
@@ -321,7 +321,7 @@ async def test_sa_rag_soc_code_short_list_is_none_raise_value_error(
     """sa_rag_soc_code should raise ValueError when short_list is None."""
     with pytest.raises(
         ValueError,
-        match="Short list is None - list provided from embedding search.",
+        match=r"Short list is None - list provided from embedding search\.",
     ):
         await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
             industry_descr="school",
