@@ -18,7 +18,7 @@ Functions:
 import time
 from collections import defaultdict
 from functools import lru_cache
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 from langchain_core.output_parsers import PydanticOutputParser
@@ -267,11 +267,11 @@ class ClassificationLLM:
         self,
         industry_descr: str,
         semantic_search_results: list[dict],
-        job_title: Optional[str] = None,
-        job_description: Optional[str] = None,
+        job_title: str | None = None,
+        job_description: str | None = None,
         candidates_limit: int = config["llm"]["candidates_limit"],
         code_digits: int = config["llm"]["code_digits"],
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
     ) -> tuple[UnambiguousResponse, dict[str, Any]]:
         """Evaluate codability to a single four-digit SOC unit group (mirrors SIC)."""
         soc_candidates = self._prompt_candidate_list(
@@ -394,10 +394,10 @@ class ClassificationLLM:
     async def formulate_open_question(
         self,
         industry_descr: str,
-        job_title: Optional[str] = None,
-        job_description: Optional[str] = None,
+        job_title: str | None = None,
+        job_description: str | None = None,
         llm_output: RagCandidate | None = None,
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
     ) -> tuple[OpenFollowUp, dict[str, Any]]:
         """Formulate an open-ended follow-up (mirrors SIC formulate_open_question)."""
 
