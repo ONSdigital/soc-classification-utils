@@ -207,7 +207,7 @@ class ClassificationLLM:
 
     def _prompt_candidate_list(
         self,
-        short_list: list[dict] | list[tuple[Any, float]],
+        short_list: list[dict[str, Any]],
         chars_limit: int = 14000,
         candidates_limit: int = config["llm"]["candidates_limit"],
         titles_limit: int = 3,
