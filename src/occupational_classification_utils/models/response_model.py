@@ -17,8 +17,6 @@ Constants:
     MAX_ALT_CANDIDATES: Maximum number of alternative candidates allowed in certain models.
 """
 
-from typing import Optional
-
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from occupational_classification_utils.utils.constants import MAX_ALT_CANDIDATES
@@ -290,14 +288,14 @@ class UnambiguousResponse(BaseModel):
             "classification code, False otherwise."
         )
     )
-    class_code: Optional[str] = Field(
+    class_code: str | None = Field(
         default=None,
         description=(
             "Full classification code assigned from respondent data. "
             "Present if codable=True, None if codable=False."
         ),
     )
-    class_descriptive: Optional[str] = Field(
+    class_descriptive: str | None = Field(
         default=None,
         description=(
             "Descriptive label for class_code. Present if codable=True, "
@@ -327,7 +325,7 @@ class UnambiguousResponse(BaseModel):
 class OpenFollowUp(BaseModel):
     """Open-ended follow-up question when SOC cannot be assigned unambiguously."""
 
-    followup: Optional[str] = Field(
+    followup: str | None = Field(
         description=(
             "Question to collect additional information for reliable SOC assignment."
         ),
