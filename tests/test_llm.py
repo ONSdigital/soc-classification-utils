@@ -332,9 +332,7 @@ async def test_sa_rag_soc_code_short_list_is_none_raise_value_error(
 
 
 @pytest.fixture
-async def classification_llm_with_soc_unambiguous(
-    mocker, mock_soc
-):  # pylint: disable=W0621
+async def classification_llm_with_soc_unambiguous(mocker, mock_soc):  # pylint: disable=W0621
     """ClassificationLLM with mocked ainvoke for unambiguous_soc_code."""
     mock_object_dict = {
         "codable": False,
