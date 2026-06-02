@@ -17,7 +17,7 @@ Constants:
     MAX_ALT_CANDIDATES: Maximum number of alternative candidates allowed in certain models.
 """
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from occupational_classification_utils.utils.constants import MAX_ALT_CANDIDATES
 
@@ -323,6 +323,8 @@ class UnambiguousResponse(BaseModel):
         min_length=50,  # Ensure detailed reasoning is provided
     )
 
+    @field_validator("alt_candidates")
+    @classmethod
     def validate_alt_candidates(cls, v):
         """Validates the number of alternative candidates.
 
