@@ -463,15 +463,15 @@ class ClassificationLLM:
 
         chain = self.soc_prompt_openfollowup | self.llm
 
-        # Log LLM request sent # Not logging yet - needs to create/import truncate_identifier.
-        # logger.info(
-        #     "LLM request sent - formulate_open_question",
-        #     job_title=truncate_identifier(job_title),
-        #     job_description=truncate_identifier(job_description),
-        #     level_of_education=truncate_identifier(level_of_education),
-        #     industry_descr=truncate_identifier(industry_descr),
-        #     correlation_id=correlation_id or "",
-        # )
+        # Log LLM request sent
+        logger.info(
+            "LLM request sent - formulate_open_question",
+            job_title=truncate_identifier(job_title),
+            job_description=truncate_identifier(job_description),
+            level_of_education=truncate_identifier(level_of_education),
+            industry_descr=truncate_identifier(industry_descr),
+            correlation_id=correlation_id or "",
+        )
         llm_start = time.perf_counter()
 
         try:
