@@ -26,34 +26,19 @@ from occupational_classification.hierarchy.soc_hierarchy import SOC
 from occupational_classification_utils.models.config_model import (
     FullConfig,
 )
+from occupational_classification_utils.utils.constants import get_default_config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 def get_config() -> FullConfig:
-    """Returns the configuration dictionary for the LLM.
+    """Return process-wide configuration (alias for ``get_default_config``).
 
-    Returns:
-        dict: A dictionary containing configuration details for the embedding model
-        and lookup file paths.
+    Kept for callers that import from this module; defaults live in
+    ``occupational_classification_utils.utils.constants``.
     """
-    return {
-        "llm": {
-            "embedding_model_name": "all-MiniLM-L6-v2",  # text-embedding-004
-            "db_dir": "src/occupational_classification_utils/data/vector_store",
-        },
-        "lookups": {
-            "soc_index": (
-                "occupational_classification_utils.data.soc_index",
-                "soc2020volume2thecodingindexexcel16102024.xlsx",
-            ),
-            "soc_structure": (
-                "occupational_classification_utils.data.soc_index",
-                "soc2020volume1structureanddescriptionofunitgroupsexcel16102024.xlsx",
-            ),
-        },
-    }
+    return get_default_config()
 
 
 config = get_config()
@@ -91,7 +76,7 @@ class EmbeddingHandler:
     """Handles embedding operations for the Chroma vector store.
 
     Attributes:
-        embeddings (Any): The embedding model used for vectorization.
+        embeddings (Any): The embedding model used for vectorisation.
         db_dir (str): Directory where the vector store database is located.
         vector_store (Chroma): The Chroma vector store instance.
         k_matches (int): Number of nearest matches to retrieve during search.
@@ -101,11 +86,11 @@ class EmbeddingHandler:
 
     def __init__(
         self,
-        embedding_model_name: str = config["llm"]["embedding_model_name"],
-        db_dir: str | None = config["llm"]["db_dir"],
-        k_matches: int = 20,
+        embedding_model_name: str = config["embedding"]["embedding_model_name"],
+        db_dir: str = config["embedding"]["db_dir"],
+        k_matches: int = config["embedding"]["k_matches"],
     ):
-        """Initializes the EmbeddingHandler.
+        """Initialises the EmbeddingHandler.
 
         Args:
             embedding_model_name (str, optional): Name of the embedding model to use.
@@ -113,7 +98,7 @@ class EmbeddingHandler:
             db_dir (str, optional): Directory for the vector store database.
                 Defaults to the value in the configuration file.
             k_matches (int, optional): Number of nearest matches to retrieve.
-                Defaults to 20.
+                Defaults to the value in the configuration file.
         """
         self.embeddings: Any  # Use Any if no common base type exists
         if embedding_model_name.startswith(("textembedding-", "text-embedding-")):
@@ -148,7 +133,7 @@ class EmbeddingHandler:
         )
 
     def _create_vector_store(self) -> Chroma:
-        """Initializes the Chroma vector store.
+        """Initialises the Chroma vector store.
 
         Returns:
             Chroma: The LangChain vector store object for Chroma.

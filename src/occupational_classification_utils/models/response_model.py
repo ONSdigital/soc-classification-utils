@@ -72,7 +72,8 @@ class SocResponse(BaseModel):
 
     codable: bool = Field(
         description="""True if enough information is provided to decide
-        SOC code, False otherwise."""
+        SOC code, False otherwise.""",
+        default=False,
     )
     followup: str | None = Field(
         description="""Question to ask user in order to collect additional information
@@ -91,7 +92,8 @@ class SocResponse(BaseModel):
     )
     soc_candidates: list[SocCandidate] = Field(
         description="""List of possible or alternative SOC codes that may be applicable
-        with their descriptive label and estimated likelihood."""
+        with their descriptive label and estimated likelihood.""",
+        default_factory=list,
     )
     soc_code_2digits: str | None = Field(
         description="""First two digits of the hierarchical SOC code assigned.
@@ -104,7 +106,8 @@ class SocResponse(BaseModel):
     reasoning: str = Field(
         description="""Step by step reasoning behind classification selected. Specifies
             the information used to assign the SOC code or any additional information
-            required to assign a SOC code."""
+            required to assign a SOC code.""",
+        default="No reasoning provided.",
     )
 
     @classmethod

@@ -17,8 +17,6 @@ from occupational_classification.data_access.soc_data_access import (
     load_soc_structure as lib_load_soc_structure,
 )
 from occupational_classification.hierarchy.soc_hierarchy import (
-    SOC,
-    SocNode,
     load_hierarchy,
 )
 
@@ -27,6 +25,7 @@ from occupational_classification_utils.llm.prompt import SA_SOC_PROMPT_RAG
 from occupational_classification_utils.models.response_model import (
     OpenFollowUp,
     SocResponse,
+    UnambiguousResponse,
 )
 
 MODEL_NAME = "gemini-2.5-flash"
@@ -36,25 +35,21 @@ LOCATION = "europe-west2"
 # Mock LLM connections
 @pytest.fixture
 def classification_llm_with_soc_sa_rag_soc():
-    """ClassificationLLM with mocked ainvoke (async invoke) for sa_rag_soc_code
-    (mirrors SIC classification_llm_with_sic_sa_rag_sic).
-
-    Uses unittest.mock so we don't depend on the pytest-mock plugin.
-    """
+    """ClassificationLLM with mocked ainvoke for sa_rag_soc_code."""
     mock_object_dict = {
         "codable": True,
         "followup": "Example follow-up from the LLM.",
-        "soc_code": "2314",
-        "soc_descriptive": "Primary education teaching professionals",
+        "soc_code": "1111",
+        "soc_descriptive": "Chief executives and senior officials",
         "soc_candidates": [
             {
-                "soc_code": "2314",
-                "soc_descriptive": "Primary education teaching professionals",
+                "soc_code": "1111",
+                "soc_descriptive": "Chief executives and senior officials",
                 "likelihood": 0.9,
             },
             {
-                "soc_code": "2313",
-                "soc_descriptive": "Secondary education teaching professionals",
+                "soc_code": "1112",
+                "soc_descriptive": "Managers directors and senior officials",
                 "likelihood": 0.1,
             },
         ],
@@ -85,32 +80,6 @@ def mock_vertex_ai():
         yield
 
 
-@pytest.fixture
-def prompt_candidate_soc():
-    nodes = [
-        SocNode(
-            soc_code="1234",
-            group_title="grouptitle1234",
-            group_description="description12345",
-        ),
-        SocNode(
-            soc_code="2345",
-            group_title="grouptitle2345",
-            group_description="description2345",
-        ),
-    ]
-    lookup = {}
-    for node in nodes:
-        lookup[str(node.soc_code)] = node
-
-    print("LOOKUP", lookup)
-
-    soc = SOC(nodes=nodes, lookup=lookup)
-    llm_class = ClassificationLLM(model_name=MODEL_NAME)
-    llm_class.soc = soc
-    return llm_class
-
-
 @pytest.mark.parametrize(
     "model, openai_api_key, expected_model",
     [
@@ -139,7 +108,7 @@ def test_llm_model_default():
 
 
 @pytest.mark.llm
-def test_prompt_candidate_strict_hierarchy_lookup_matches_sic_shape(mock_vertex_ai):
+def test_prompt_candidate_strict_hierarchy_lookup(mock_vertex_ai):
     """Prompt line comes from ``self.soc[code]`` (no vector-store title fallback)."""
     _ = mock_vertex_ai
     llm = ClassificationLLM(model_name=MODEL_NAME)
@@ -157,28 +126,39 @@ def test_prompt_candidate_strict_hierarchy_lookup_matches_sic_shape(mock_vertex_
     assert "Example from search" in out
 
 
+@pytest.mark.parametrize(
+    "code, expected_output",
+    [
+        ("1", ["Code", "Title", "Details"]),
+        ("1111", ["Code", "Title", "Details", "Includes"]),
+    ],
+)
+@pytest.mark.llm
+def test_prompt_candidate_include_all(prompt_candidate_soc, code, expected_output):
+    """include_all adds Details and Includes (tasks) like SIC _prompt_candidate."""
+    result = prompt_candidate_soc._prompt_candidate(  # pylint: disable=protected-access
+        code, ["Example title"], include_all=True
+    )
+    assert isinstance(result, str)
+    assert all(part in result for part in expected_output)
+
+
 @pytest.mark.llm
 def test_model_name():
-    assert ClassificationLLM().llm.model_name == "gemini-1.0-pro"
+    assert ClassificationLLM().llm.model_name == "gemini-2.5-flash"
 
 
-def test_sa_soc_prompt_requires_followup_only_for_ambiguity():
-    """Prompt should request final code when a clear winner exists.
-
-    Note: this only asserts wording on the single-step `SA_SOC_PROMPT_RAG`
-    template. When SOC moves to two-step classification (SIC-style), remove
-    this test or replace it with checks on the new prompt(s).
-    """
+def test_sa_soc_prompt_rag_matches_sic_rag_followup_wording():
+    """SA_SOC_PROMPT_RAG follow-up and reasoning wording mirrors SA_SIC_PROMPT_RAG."""
     prompt_text = SA_SOC_PROMPT_RAG.template
     assert (
         "You must provide a follow up question that would help identify the exact coding based"
         in prompt_text
     )
-    assert "when the coding is ambiguous." in prompt_text
-    assert (
-        "When one SOC code is clearly the most likely match, return that final SOC code and"
-        in prompt_text
-    )
+    assert "on the list you respond with." in prompt_text
+    assert "Always provide reasoning for your decision." in prompt_text
+    assert "when the coding is ambiguous." not in prompt_text
+    assert "leave followup empty." not in prompt_text
 
 
 @pytest.mark.llm
@@ -198,8 +178,8 @@ async def test_llm_response_mocked_sa_rag_soc_code(
     short_list = [
         {
             "distance": 0.6,
-            "title": "Primary education teaching professionals",
-            "code": "2314",
+            "title": "Chief executives and senior officials",
+            "code": "1111",
         }
     ]
     result = await classification_llm_with_soc_sa_rag_soc.sa_rag_soc_code(
@@ -211,7 +191,7 @@ async def test_llm_response_mocked_sa_rag_soc_code(
     assert isinstance(result[0], SocResponse)
     assert isinstance(result[1], list)
     assert isinstance(result[2], dict)
-    assert result[0].soc_code == "2314"
+    assert result[0].soc_code == "1111"
 
 
 # Tests for rising errors
@@ -235,10 +215,7 @@ def test_model_family_raise_not_implemented_error():
 
 @pytest.mark.llm
 async def test_llm_response_mocked_get_soc_code():
-    """Test get_soc_code returns a SocResponse with mocked LLM output.
-
-    Mirrors the SIC get_sic_code test but for SOC.
-    """
+    """Test get_soc_code returns a SocResponse with mocked LLM output."""
     mock_object_dict = {
         "codable": True,
         "followup": "",
@@ -293,15 +270,12 @@ async def test_sa_rag_soc_code_call_dict_job_title_normalised(
     title,
     expected_job_title,
 ):
-    """sa_rag_soc_code call dict should normalise empty/None job_title to 'Unknown'.
-
-    Mirrors SIC tests for job-title handling in sa_rag_sic_code.
-    """
+    """sa_rag_soc_code call dict should normalise empty/None job_title to 'Unknown'."""
     short_list = [
         {
             "distance": 0.6,
-            "title": "Primary education teaching professionals",
-            "code": "2314",
+            "title": "Chief executives and senior officials",
+            "code": "1111",
         }
     ]
     (
@@ -325,8 +299,8 @@ async def test_sa_rag_soc_code_followup_is_str(
     short_list = [
         {
             "distance": 0.6,
-            "title": "Primary education teaching professionals",
-            "code": "2314",
+            "title": "Chief executives and senior officials",
+            "code": "1111",
         }
     ]
     (
@@ -357,6 +331,111 @@ async def test_sa_rag_soc_code_short_list_is_none_raise_value_error(
             job_description="teach children",
             short_list=None,
         )
+
+
+@pytest.fixture
+async def classification_llm_with_soc_unambiguous(mocker, mock_soc):  # pylint: disable=W0621
+    """ClassificationLLM with mocked ainvoke for unambiguous_soc_code."""
+    mock_object_dict = {
+        "codable": False,
+        "class_code": None,
+        "class_descriptive": None,
+        "alt_candidates": [
+            {
+                "class_code": "1111",
+                "class_descriptive": "description",
+                "likelihood": 0.5,
+            }
+        ],
+        "reasoning": "This is reasoning for the llm answer. Padded to 50 characters (Pydantic)",
+    }
+    mock_object_json = json.dumps(mock_object_dict)
+    mock_message = mocker.Mock(spec=AIMessage)
+    mock_message.content = mock_object_json
+    mocker.patch(
+        "occupational_classification_utils.llm.llm.ChatVertexAI.ainvoke",
+        return_value=mock_message,
+    )
+    llm_class = ClassificationLLM(model_name=MODEL_NAME)
+    llm_class.soc = mock_soc
+    return llm_class
+
+
+@pytest.fixture
+def prompt_candidate_soc(mock_soc):  # pylint: disable=W0621
+    """LLM with SOC hierarchy attached."""
+    llm_class = ClassificationLLM(model_name=MODEL_NAME)
+    llm_class.soc = mock_soc
+    return llm_class
+
+
+@pytest.mark.llm
+async def test_llm_response_mocked_unambiguous_soc_code(
+    classification_llm_with_soc_unambiguous,
+):
+    """Mocked unambiguous_soc_code returns typed response and call dict."""
+    result = await classification_llm_with_soc_unambiguous.unambiguous_soc_code(
+        industry_descr="",
+        semantic_search_results=[],
+        job_description="",
+        job_title="",
+    )
+    assert isinstance(result[0], UnambiguousResponse)
+    assert isinstance(result[1], dict)
+
+
+@pytest.mark.parametrize(
+    "title, expected_job_title",
+    [
+        ("", "Unknown"),
+        (" ", "Unknown"),
+        (None, "Unknown"),
+        ("teacher", "teacher"),
+    ],
+)
+@pytest.mark.llm
+async def test_unambiguous_soc_code_call_dict_job_title_correct(
+    title,
+    expected_job_title,
+    classification_llm_with_soc_unambiguous,
+):
+    """job_title in call dict matches normalisation rules."""
+    result = (
+        await classification_llm_with_soc_unambiguous.unambiguous_soc_code(
+            "school",
+            [{"title": "Teaching", "code": "1111"}],
+            title,
+            "educate kids",
+        )
+    )[1]["job_title"]
+    assert result == expected_job_title
+
+
+@pytest.mark.llm
+async def test_unambiguous_soc_code_followup_is_str(
+    classification_llm_with_soc_unambiguous,
+):
+    """Reasoning on the unambiguous response is a string."""
+    result = (
+        await classification_llm_with_soc_unambiguous.unambiguous_soc_code(
+            industry_descr="school",
+            semantic_search_results=[{"title": "Teaching", "code": "1111"}],
+            job_title="teacher",
+            job_description="educate kids",
+        )
+    )[0].reasoning
+    assert isinstance(result, str)
+
+
+@pytest.fixture
+def mock_soc():
+    """Minimal SOC hierarchy from the packaged example lookup table."""
+    ref = ("occupational_classification", "data/example_soc_lookup_data.csv")
+    with as_file(files(ref[0]).joinpath(ref[1])) as path:
+        p = str(path)
+        idx = lib_load_soc_index(p)
+        soc = load_hierarchy(lib_load_soc_structure(p), idx)
+    return soc
 
 
 @pytest.mark.llm

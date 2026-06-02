@@ -11,6 +11,10 @@ SOC classification utilities used in the classification of occupations.  This re
 - Embeddings.  Functionality for embedding SOC hierarchy data, managing vector stores,
 and performing similarity searches
 - Data Access. Functions to load CSV data files related to SOC.
+- **LLM flows**:
+  - **Survey Assist classify (two-step)**: `unambiguous_soc_code`, then `formulate_open_question` when not codable (mirrors SIC).
+  - **Legacy / other callers**: `sa_rag_soc_code` (single-shot RAG; not used on the classify route).
+  - **Planned (SA-700)**: `reranker_soc` and `SOC_PROMPT_RERANKER`, mirroring `reranker_sic` / `SIC_PROMPT_RERANKER` in `sic-classification-utils`. Neither SIC nor SOC classify calls a reranker today. Until SOC reranker exists, `survey-assist-api` config **v3** lists `SA_SOC_PROMPT_RAG` as the third SOC prompt instead of `SOC_PROMPT_RERANKER` (SIC v3 lists the reranker prompt).
 
 ## Prerequisites
 
