@@ -391,140 +391,6 @@ class ClassificationLLM:
 
         return validated_answer, call_dict
 
-    async def sa_rag_soc_code(  # noqa: PLR0913
-        self,
-        industry_descr: str,
-        job_title: str | None = None,
-        job_description: str | None = None,
-        code_digits: int = config["llm"]["code_digits"],
-        candidates_limit: int = config["llm"]["candidates_limit"],
-        short_list: list[dict[Any, Any]] | None = None,
-    ) -> tuple[SocResponse, list[dict[Any, Any]] | None, Any | None]:
-        """Generates a SOC classification based on respondent's data using RAG approach.
-
-        Caller must provide short_list (e.g. from vector store API). Mirrors
-        sic-classification-utils ``sa_rag_sic_code`` (raises when short_list is None).
-
-        Args:
-            industry_descr (str): The description of the industry.
-            job_title (str, optional): The job title. Defaults to None.
-            job_description (str, optional): The job description. Defaults to None.
-            code_digits (int, optional): The number of digits in the generated
-                SOC code. Defaults to 4.
-            candidates_limit (int, optional): The maximum number of SOC code candidates
-                to consider. Defaults to 5.
-            short_list (list[dict[Any, Any]], optional): A list of results from
-                embedding or vector store search (e.g. from soc-classification-vector-store).
-                Each dict should have "code" and "title" keys.
-
-        Returns:
-            SocResponse: The generated response to the query.
-
-        Raises:
-            ValueError: If there is an error during the parsing of the response.
-            ValueError: If short_list is None.
-
-        """
-
-        def prep_call_dict(industry_descr, job_title, job_description, soc_codes):
-            # Helper function to prepare the call dictionary
-            is_job_title_present = job_title is None or job_title in {"", " "}
-            job_title = "Unknown" if is_job_title_present else job_title
-
-            is_job_description_present = job_description is None or job_description in {
-                "",
-                " ",
-            }
-            job_description = (
-                "Unknown" if is_job_description_present else job_description
-            )
-
-            call_dict = {
-                "industry_descr": industry_descr,
-                "job_title": job_title,
-                "job_description": job_description,
-                "soc_index": soc_codes,
-            }
-            return call_dict
-
-        if short_list is None:
-            raise ValueError(
-                "Short list is None - list provided from embedding search."
-            )
-
-        soc_codes = self._prompt_candidate_list(
-            short_list, code_digits=code_digits, candidates_limit=candidates_limit
-        )
-
-        call_dict = prep_call_dict(
-            industry_descr=industry_descr,
-            job_title=job_title,
-            job_description=job_description,
-            soc_codes=soc_codes,
-        )
-
-        if self.verbose:
-            final_prompt = self.sa_soc_prompt_rag.format(**call_dict)
-            logger.debug(f"Final prompt: {final_prompt}")
-
-        chain = self.sa_soc_prompt_rag | self.llm
-
-        try:
-            response = await chain.ainvoke(call_dict, return_only_outputs=True)
-        except ValueError as err:
-            logger.error(f"Error from chain, exit early: {err}", error=str(err))
-            validated_answer = SocResponse(
-                followup="Follow-up question not available due to error.",
-                reasoning="Error from chain, exit early",
-            )
-            return validated_answer, short_list, call_dict
-
-        if self.verbose:
-            logger.debug(f"LLM response: {response}")
-
-        parser = PydanticOutputParser(  # type: ignore # Suspect langchain ver bug
-            pydantic_object=SocResponse,
-        )
-        try:
-            validated_answer = parser.parse(str(response.content))
-        except (ValueError, AttributeError) as parse_error:
-            logger.error(
-                f"Failed to parse response: {parse_error}", error=str(parse_error)
-            )
-            logger.warning(
-                "Failed to parse response", response_content=str(response.content)
-            )
-
-            try:
-                chain = FIX_PARSING_PROMPT | self.llm
-                response = await chain.ainvoke(
-                    {
-                        "llm_output": str(response.content),
-                        "format_instructions": parser.get_format_instructions(),
-                    },
-                    return_only_outputs=True,
-                )
-                validated_answer = parser.parse(str(response.content))
-                logger.debug("Successfully parsed reformatted response.")
-            except (ValueError, AttributeError) as parse_error2:
-                logger.error(
-                    f"Failed to parse response again: {parse_error2}",
-                    error=str(parse_error2),
-                )
-                logger.warning(
-                    "Failed to parse response again",
-                    response_content=str(response.content),
-                )
-                reasoning = (
-                    f"ERROR parse_error=<{parse_error2}>, response=<{response.content}>"
-                )
-                validated_answer = SocResponse(
-                    followup="Follow-up question not available due to error.",
-                    reasoning=reasoning,
-                )
-
-        return validated_answer, short_list, call_dict
-
     async def formulate_open_question(  # noqa: PLR0913
         self,
         industry_descr: str,
@@ -690,3 +556,137 @@ class ClassificationLLM:
             logger.debug(f"{response=}")
 
         return validated_answer, call_dict
+
+    async def sa_rag_soc_code(  # noqa: PLR0913
+        self,
+        industry_descr: str,
+        job_title: str | None = None,
+        job_description: str | None = None,
+        code_digits: int = config["llm"]["code_digits"],
+        candidates_limit: int = config["llm"]["candidates_limit"],
+        short_list: list[dict[Any, Any]] | None = None,
+    ) -> tuple[SocResponse, list[dict[Any, Any]] | None, Any | None]:
+        """Generates a SOC classification based on respondent's data using RAG approach.
+
+        Caller must provide short_list (e.g. from vector store API). Mirrors
+        sic-classification-utils ``sa_rag_sic_code`` (raises when short_list is None).
+
+        Args:
+            industry_descr (str): The description of the industry.
+            job_title (str, optional): The job title. Defaults to None.
+            job_description (str, optional): The job description. Defaults to None.
+            code_digits (int, optional): The number of digits in the generated
+                SOC code. Defaults to 4.
+            candidates_limit (int, optional): The maximum number of SOC code candidates
+                to consider. Defaults to 5.
+            short_list (list[dict[Any, Any]], optional): A list of results from
+                embedding or vector store search (e.g. from soc-classification-vector-store).
+                Each dict should have "code" and "title" keys.
+
+        Returns:
+            SocResponse: The generated response to the query.
+
+        Raises:
+            ValueError: If there is an error during the parsing of the response.
+            ValueError: If short_list is None.
+
+        """
+
+        def prep_call_dict(industry_descr, job_title, job_description, soc_codes):
+            # Helper function to prepare the call dictionary
+            is_job_title_present = job_title is None or job_title in {"", " "}
+            job_title = "Unknown" if is_job_title_present else job_title
+
+            is_job_description_present = job_description is None or job_description in {
+                "",
+                " ",
+            }
+            job_description = (
+                "Unknown" if is_job_description_present else job_description
+            )
+
+            call_dict = {
+                "industry_descr": industry_descr,
+                "job_title": job_title,
+                "job_description": job_description,
+                "soc_index": soc_codes,
+            }
+            return call_dict
+
+        if short_list is None:
+            raise ValueError(
+                "Short list is None - list provided from embedding search."
+            )
+
+        soc_codes = self._prompt_candidate_list(
+            short_list, code_digits=code_digits, candidates_limit=candidates_limit
+        )
+
+        call_dict = prep_call_dict(
+            industry_descr=industry_descr,
+            job_title=job_title,
+            job_description=job_description,
+            soc_codes=soc_codes,
+        )
+
+        if self.verbose:
+            final_prompt = self.sa_soc_prompt_rag.format(**call_dict)
+            logger.debug(f"Final prompt: {final_prompt}")
+
+        chain = self.sa_soc_prompt_rag | self.llm
+
+        try:
+            response = await chain.ainvoke(call_dict, return_only_outputs=True)
+        except ValueError as err:
+            logger.error(f"Error from chain, exit early: {err}", error=str(err))
+            validated_answer = SocResponse(
+                followup="Follow-up question not available due to error.",
+                reasoning="Error from chain, exit early",
+            )
+            return validated_answer, short_list, call_dict
+
+        if self.verbose:
+            logger.debug(f"LLM response: {response}")
+
+        parser = PydanticOutputParser(  # type: ignore # Suspect langchain ver bug
+            pydantic_object=SocResponse,
+        )
+        try:
+            validated_answer = parser.parse(str(response.content))
+        except (ValueError, AttributeError) as parse_error:
+            logger.error(
+                f"Failed to parse response: {parse_error}", error=str(parse_error)
+            )
+            logger.warning(
+                "Failed to parse response", response_content=str(response.content)
+            )
+
+            try:
+                chain = FIX_PARSING_PROMPT | self.llm
+                response = await chain.ainvoke(
+                    {
+                        "llm_output": str(response.content),
+                        "format_instructions": parser.get_format_instructions(),
+                    },
+                    return_only_outputs=True,
+                )
+                validated_answer = parser.parse(str(response.content))
+                logger.debug("Successfully parsed reformatted response.")
+            except (ValueError, AttributeError) as parse_error2:
+                logger.error(
+                    f"Failed to parse response again: {parse_error2}",
+                    error=str(parse_error2),
+                )
+                logger.warning(
+                    "Failed to parse response again",
+                    response_content=str(response.content),
+                )
+                reasoning = (
+                    f"ERROR parse_error=<{parse_error2}>, response=<{response.content}>"
+                )
+                validated_answer = SocResponse(
+                    followup="Follow-up question not available due to error.",
+                    reasoning=reasoning,
+                )
+
+        return validated_answer, short_list, call_dict
