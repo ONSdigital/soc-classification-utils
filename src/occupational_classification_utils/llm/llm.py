@@ -42,7 +42,7 @@ from occupational_classification_utils.llm.prompt import (
 )
 from occupational_classification_utils.models.response_model import (
     OpenFollowUp,
-    SocCandidate,
+    RagCandidate,
     SocResponse,
     UnambiguousResponse,
 )
@@ -397,7 +397,7 @@ class ClassificationLLM:
         job_title: str | None = None,
         job_description: str | None = None,
         level_of_education: str | None = None,
-        llm_output: SocCandidate | None = None,
+        llm_output: RagCandidate | None = None,
         correlation_id: str | None = None,
     ) -> tuple[OpenFollowUp, Any]:
         """Formulates an open-ended question using respondent data and survey design guidelines.
@@ -407,7 +407,7 @@ class ClassificationLLM:
             job_title (str, optional): The job title. Defaults to None.
             job_description (str, optional): The job description. Defaults to None.
             level_of_education (str, optional): The level od education. Defaults to None.
-            llm_output (SocCandidate, optional): The response from the LLM model.
+            llm_output (RagCandidate, optional): The response from the LLM model.
             correlation_id (str, optional): Optional correlation ID for request tracking.
 
         Returns:
