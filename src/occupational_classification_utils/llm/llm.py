@@ -122,7 +122,7 @@ class ClassificationLLM:
         self,
         job_title: str,
         job_description: str,
-        # level_of_education: str,
+        level_of_education: str,
         manage_others: bool,
         industry_descr: str,
     ) -> SocResponse:
@@ -148,7 +148,7 @@ class ClassificationLLM:
             {
                 "job_title": job_title,
                 "job_description": job_description,
-                # "level_of_education": level_of_education,
+                "level_of_education": level_of_education,
                 "manage_others": manage_others,
                 "industry_descr": industry_descr,
             },
@@ -391,12 +391,12 @@ class ClassificationLLM:
 
         return validated_answer, call_dict
 
-    async def formulate_open_question(
+    async def formulate_open_question(  # noqa: PLR0913
         self,
         industry_descr: str,
         job_title: str | None = None,
         job_description: str | None = None,
-        # level_of_education: str | None = None,
+        level_of_education: str | None = None,
         llm_output: RagCandidate | None = None,
         correlation_id: str | None = None,
     ) -> tuple[OpenFollowUp, Any]:
@@ -421,11 +421,7 @@ class ClassificationLLM:
         """
 
         def prep_call_dict(
-            industry_descr,
-            job_title,
-            job_description,
-            # level_of_education,
-            llm_output,
+            industry_descr, job_title, job_description, level_of_education, llm_output
         ):
             # Helper function to prepare the call dictionary
             is_job_title_present = job_title is None or job_title in {"", " "}
@@ -438,17 +434,17 @@ class ClassificationLLM:
             job_description = (
                 "Unknown" if is_job_description_present else job_description
             )
-            # level_of_education = (
-            #     "Unknown"
-            #     if (level_of_education is None or level_of_education in {"", " "})
-            #     else level_of_education
-            # )
+            level_of_education = (
+                "Unknown"
+                if (level_of_education is None or level_of_education in {"", " "})
+                else level_of_education
+            )
 
             call_dict = {
                 "industry_descr": industry_descr,
                 "job_title": job_title,
                 "job_description": job_description,
-                # "level_of_education": level_of_education,
+                "level_of_education": level_of_education,
                 "llm_output": str(llm_output),
             }
             return call_dict
@@ -457,7 +453,7 @@ class ClassificationLLM:
             industry_descr=industry_descr,
             job_title=job_title,
             job_description=job_description,
-            # level_of_education=level_of_education,
+            level_of_education=level_of_education,
             llm_output=llm_output,
         )
 
@@ -472,7 +468,7 @@ class ClassificationLLM:
             "LLM request sent - formulate_open_question",
             job_title=truncate_identifier(job_title),
             job_description=truncate_identifier(job_description),
-            # level_of_education=truncate_identifier(level_of_education),
+            level_of_education=truncate_identifier(level_of_education),
             industry_descr=truncate_identifier(industry_descr),
             correlation_id=correlation_id or "",
         )
