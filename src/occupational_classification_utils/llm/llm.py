@@ -122,7 +122,7 @@ class ClassificationLLM:
         self,
         job_title: str,
         job_description: str,
-        level_of_education: str,
+        level_of_education: str | None,
         manage_others: bool,
         industry_descr: str,
     ) -> SocResponse:
