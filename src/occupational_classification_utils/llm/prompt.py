@@ -229,6 +229,7 @@ Inputs
 - Company's main activity: {industry_descr}
 - Job title: {job_title}
 - Job description: {job_description}
+- Level of Education: {level_of_education}
 - Shortlist from previous model: {llm_output}
 - Note: These are candidate occupational categories; do not mention codes or "SOC"
 to the respondent.
