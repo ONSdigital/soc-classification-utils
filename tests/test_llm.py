@@ -246,7 +246,7 @@ async def test_llm_response_mocked_get_soc_code():
         result = await ClassificationLLM(model_name=MODEL_NAME).get_soc_code(
             job_title="teacher",
             job_description="teach children",
-            level_of_education="degree",
+            # level_of_education="degree",
             manage_others=False,
             industry_descr="school",
         )
@@ -457,7 +457,7 @@ async def test_llm_response_mocked_formulate_open_question(
         industry_descr="",
         job_title="",
         job_description="",
-        level_of_education="",
+        # level_of_education="",
         llm_output="",
     )
     assert isinstance(result[0], OpenFollowUp)

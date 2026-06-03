@@ -50,7 +50,6 @@ needed to determine it. Make sure to use the provided 2020 SOC index.
 ===Respondent Data===
 - Job Title: {job_title}
 - Job Description: {job_description}
-- Level of Education: {level_of_education}
 - Line Management Responsibilities: {manage_others}
 - Company's main activity: {industry_descr}
 
