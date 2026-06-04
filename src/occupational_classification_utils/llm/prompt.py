@@ -197,6 +197,7 @@ Follow these steps in order:
 - Company's main activity: {industry_descr}
 - Job Title: {job_title}
 - Job Description: {job_description}
+- Level of Education: {level_of_education}
 
 ===Shortlist===
 {soc_candidates}
