@@ -314,7 +314,6 @@ class UnambiguousResponse(BaseModel):
         default_factory=list,
         description="Short list of possible classification codes with their "
         "descriptive labels and estimated likelihoods.",
-        min_length=1,  # Ensure there's always at least one candidate
         max_length=10,  # Limit to less than 10 candidates
     )
 
@@ -328,7 +327,7 @@ class UnambiguousResponse(BaseModel):
     def validate_alt_candidates(cls, v):
         """Validates the number of alternative candidates.
 
-        Ensures that the number of candidates is between 1 and the maximum allowed.
+        Ensures that the number of candidates is less or equal to the maximum allowed.
 
         Args:
             v (list): The list of alternative candidates.
@@ -339,8 +338,8 @@ class UnambiguousResponse(BaseModel):
         Raises:
             ValueError: If the number of candidates is not within the allowed range.
         """
-        if not 1 <= len(v) <= MAX_ALT_CANDIDATES:
-            raise ValueError("alt_candidates must contain between 1 and 10 items.")
+        if not len(v) <= MAX_ALT_CANDIDATES:
+            raise ValueError("alt_candidates must contain no more than 10 items.")
         return v
 
 
