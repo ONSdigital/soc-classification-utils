@@ -7,6 +7,7 @@ Diasbling duplicate code - methods needs to be changed in other repos to reflect
 Diasbling line-too-long: commentary and discussion.
 Disabling pointless-string-statement: comments to the code for reading clarity.
 """
+
 # %%
 import ast
 import re
@@ -59,7 +60,6 @@ def parse_string(text):
 # %%
 # string to list of dictionaries
 data["llm_soc_candidates"] = data["llm_soc_candidates"].map(parse_string)
-
 
 # %%
 print(f"llm {data["codable"].value_counts()}")
@@ -611,7 +611,6 @@ for k in data_high_likelihood_agreement["reasoning"]:
     # print(k)
     if "misspelling" in k or "misspelled" in k:
         misspelled += 1
-
 
 # %%
 print(misspelled)
