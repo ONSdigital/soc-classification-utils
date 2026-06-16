@@ -1,43 +1,29 @@
+# %%
 # pylint: disable=C0103, C0114
+
 # %%
 import dotenv
 import pandas as pd
 
 # %%
-knowledge_bucket = dotenv.get_key("../.env", "KNOWLEDGE_BUCKET")
+knowledge_bucket = dotenv.get_key(".env", "KNOWLEDGE_BUCKET")
+sa_dev = dotenv.get_key(".env", "SA_DEV")
+sandbox = dotenv.get_key(".env", "SA_SANDBOX")
 
 # %%
-rephrased = pd.read_csv("soc_data/ashe_correct_spelling_2026_04_20.csv")
-in_index = pd.read_csv("soc_data/ashe_in_soc_index_2026_04_20.csv")
+data = pd.read_csv(f"{knowledge_bucket}ASHE_classifai_soc_kb.csv")
 
 # %%
-in_index["corrected_spelling"] = in_index["documents"]
+data = data.rename(columns={"documents": "text"})
 
 # %%
-full_data = pd.concat([rephrased, in_index], ignore_index=True)
+data = data[['text','label']].copy()
 
 # %%
-soc_kb = full_data[["corrected_spelling", "label"]]
+# data.to_csv(f"{sa_dev}soc_vector_store_config/data/soc_kb_for_classifai.csv")
+# data.to_csv(f"{sandbox}soc_vector_store_config/data/soc_kb_for_classifai.csv")
 
 # %%
-soc_kb = soc_kb.rename(columns={"corrected_spelling": "text"})
+data.to_csv(f"{knowledge_bucket}SOC_KB.csv", index=False)
 
-# %%
-soc_kb["text"] = soc_kb["text"].str.capitalize()
 
-# %%
-soc_kb = soc_kb.drop_duplicates(
-    subset=["text", "label"], keep="last", ignore_index=True
-)
-
-# %%
-# soc_kb.to_csv(f"{knowledge_bucket}SOC_KB.csv", index=False)
-
-# %%
-mask = soc_kb.groupby("text")["label"].transform("nunique") > 1
-
-# %%
-conflict_codes = soc_kb[mask].sort_values("text")
-
-# %%
-print(conflict_codes)
