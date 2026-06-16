@@ -22,13 +22,11 @@ from occupational_classification_utils.llm.llm import ClassificationLLM
 ### Constants ###
 knowledge_bucket = dotenv.get_key(".env", "KNOWLEDGE_BUCKET")
 
-data_folder = "notebooks/soc_data"
-
+# location and names for saving the output files
+data_folder = "src/occupational_classification_utils/data/soc_data"
 file_name = "ashe_llm_soc_codes"
-
 output_file_name = "_2026_05_19"
 
-# JOB_TITLE_COLUMN = "corrected_spelling"
 JOB_TITLE_COLUMN = "documents"
 CODE_COLUMN = "label"
 
