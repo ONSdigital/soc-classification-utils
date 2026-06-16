@@ -140,7 +140,6 @@ async def split_in_batches(document: pd.DataFrame):  # pylint: disable=R0914
             [
                 "documents",
                 "label",
-                # "corrected_spelling",
                 "codable",
                 "llm_soc_code",
                 "llm_soc_candidates",
