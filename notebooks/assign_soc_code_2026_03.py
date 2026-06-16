@@ -176,7 +176,6 @@ if not os.path.exists(f"{data_folder}/{file_name}{output_file_name}.csv"):
     all_columns = [
         "documents",
         "label",
-        # "corrected_spelling",
         "codable",
         "llm_soc_code",
         "llm_soc_candidates",
