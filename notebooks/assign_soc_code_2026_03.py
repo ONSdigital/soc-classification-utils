@@ -43,7 +43,7 @@ try:
     print("Database loaded from storage.")
 
 except FileNotFoundError:
-    print("KNOWLEDGE_BUCKET not found in .env file. Please set it.")
+    print("File not found in the specified KNOWLEDGE_BUCKET.")
     data = pd.read_csv(f"{data_folder}/ASHE_classifai_soc_kb.csv")
     print("Database loaded from local.")
 

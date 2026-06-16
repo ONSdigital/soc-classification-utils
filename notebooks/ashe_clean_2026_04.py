@@ -46,7 +46,7 @@ try:
 
 
 except FileNotFoundError:
-    print("KNOWLEDGE_BUCKET not found in .env file. Please set it.")
+    print("File not found in the specified KNOWLEDGE_BUCKET.")
     data = pd.read_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv")
     print("Database loaded from local.")
 
