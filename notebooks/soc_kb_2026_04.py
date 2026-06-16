@@ -20,6 +20,9 @@ data = data.rename(columns={"documents": "text"})
 data = data[['text','label']].copy()
 
 # %%
+data['text'] = data['text'].str.strip()
+
+# %%
 # data.to_csv(f"{sa_dev}soc_vector_store_config/data/soc_kb_for_classifai.csv", index=False)
 # data.to_csv(f"{sandbox}soc_vector_store_config/data/soc_kb_for_classifai.csv", index=False)
 
