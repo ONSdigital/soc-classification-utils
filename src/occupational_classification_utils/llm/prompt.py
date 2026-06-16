@@ -104,7 +104,6 @@ Always provide reasoning for your decision.
 - Company's main activity: {industry_descr}
 - Job Title: {job_title}
 - Job Description: {job_description}
-- Level of Education: {level_of_education}
 
 ===Relevant subset of UK SOC 2020===
 {soc_index}
