@@ -1,5 +1,6 @@
 # pylint: disable=C0103, C0301
-"""This is not a notebook. Run as a script.
+"""Exploratory work, not longer used for the data cleaning.
+This is not a notebook. Run as a script.
 
 Allows to use LLMS to correct spelling of provided text strings.
 Recognises ABBREVIATIONS commonly used in SOC.
