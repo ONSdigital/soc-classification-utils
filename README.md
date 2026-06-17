@@ -1,5 +1,14 @@
 # SOC Classification Utils
 
+![Status: Retiring](https://img.shields.io/badge/status-retiring-orange)
+
+
+> [!WARNING]
+> **Repository retirement notice**
+>
+> This repository will be retired in the coming months as the functionality is being moved elsewhere.
+> Existing code remains available for reference, but new development should be directed to the replacement repositories  (survey-assist-embed-core and/or survey-assist-classification-core).
+
 Standard Occupational Classification (SOC) Utilities, initially developed for Survey Assist API and complements the SOC Classification Library code.
 
 ## Overview
