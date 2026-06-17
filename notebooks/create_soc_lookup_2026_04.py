@@ -21,15 +21,24 @@ from occupational_classification.data_access.soc_data_access import (
 )
 
 # %%
-input_folder = "soc_data"
-
+input_folder = "src/occupational_classification_utils/data/soc_data"
 file_name = "ashe_llm_soc_codes"
-
 file_suffix = "_2026_05_19"
+knowledge_bucket = dotenv.get_key(".env", "KNOWLEDGE_BUCKET")
+
+
 
 # %%
 # read the data
-data = pd.read_csv(f"notebooks/{input_folder}/{file_name}{file_suffix}.csv")
+
+try:
+    data = pd.read_csv(f"{knowledge_bucket}wip_data/{file_name}{file_suffix}.csv")
+    print("Database loaded from storage.")
+
+except FileNotFoundError:
+    print("File not found in the specified KNOWLEDGE_BUCKET.")
+    data = pd.read_csv(f"{input_folder}/{file_name}{file_suffix}.csv")
+    print("Database loaded from local.")
 
 # %%
 # use only columns needed
