@@ -37,12 +37,14 @@ c_llm = ClassificationLLM("gemini-2.5-flash", verbose=False)
 
 ### Access data ###
 try:
-    data = pd.read_csv(f"{knowledge_bucket}ASHE_classifai_soc_kb.csv")
+    data = pd.read_csv(
+        f"{knowledge_bucket}ASHE_classifai_soc_kb.csv", dtype={"label": str}
+    )
     print("Database loaded from storage.")
 
 except FileNotFoundError:
     print("File not found in the specified KNOWLEDGE_BUCKET.")
-    data = pd.read_csv(f"{data_folder}/ASHE_classifai_soc_kb.csv")
+    data = pd.read_csv(f"{data_folder}/ASHE_classifai_soc_kb.csv", dtype={"label": str})
     print("Database loaded from local.")
 
 try:
@@ -167,7 +169,9 @@ async def split_in_batches(document: pd.DataFrame):  # pylint: disable=R0914
 
         if current_batch_id + 1 == final_batch:
 
-            final_df = pd.read_csv(f"{data_folder}/{file_name}{output_file_name}.csv")
+            final_df = pd.read_csv(
+                f"{data_folder}/{file_name}{output_file_name}.csv", dtype={"label": str}
+            )
             final_df = final_df.drop_duplicates(
                 subset=["documents", "label"], keep="last", ignore_index=True
             )  # remove duplicates

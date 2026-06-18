@@ -27,21 +27,21 @@ file_suffix = "_2026_06_16"
 # file_suffix = "_2026_05_19"
 knowledge_bucket = dotenv.get_key(".env", "KNOWLEDGE_BUCKET")
 
-
 # %%
 # read the data
 
 try:
-    data = pd.read_csv(f"{knowledge_bucket}wip_data/{file_name}{file_suffix}.csv")
+    data = pd.read_csv(
+        f"{knowledge_bucket}wip_data/{file_name}{file_suffix}.csv", dtype={"label": str}
+    )
     print("Database loaded from storage.")
 
 except FileNotFoundError:
     print("File not found in the specified KNOWLEDGE_BUCKET.")
-    data = pd.read_csv(f"{input_folder}/{file_name}{file_suffix}.csv")
+    data = pd.read_csv(
+        f"{input_folder}/{file_name}{file_suffix}.csv", dtype={"label": str}
+    )
     print("Database loaded from local.")
-
-# data = pd.read_csv(f"{input_folder}/{file_name}{file_suffix}.csv")
-
 
 # %%
 # use only columns needed
@@ -665,17 +665,7 @@ soc_lookup = (
 )
 
 # %%
-# soc_lookup.to_csv(f"{knowledge_bucket}wip_data/SOC_DIRECT_LOOKUP.csv")
+# soc_lookup.to_csv(f"{knowledge_bucket}wip_data/soc_kb_for_direct_lookup.csv")
 
 # %%
 len(soc_lookup)
-
-# %%
-soc_copy = (
-    pd.concat([soc_lookup, data_one_code_no_phantoms[["documents", "label"]]])
-    .drop_duplicates(subset=["documents"])
-    .reset_index(drop=True)
-)
-
-# %%
-len(soc_copy)

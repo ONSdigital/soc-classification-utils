@@ -41,13 +41,17 @@ c_llm = ClassificationLLM("gemini-2.5-flash", verbose=False)
 
 ### Access data ###
 try:
-    data = pd.read_csv(f"{knowledge_bucket}ASHE_classifai_soc_kb.csv")
+    data = pd.read_csv(
+        f"{knowledge_bucket}ASHE_classifai_soc_kb.csv", dtype={"label": str}
+    )
     print("Database loaded from storage.")
 
 
 except FileNotFoundError:
     print("File not found in the specified KNOWLEDGE_BUCKET.")
-    data = pd.read_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv")
+    data = pd.read_csv(
+        f"{output_folder}/{file_prefix}{file_suffix}.csv", dtype={"label": str}
+    )
     print("Database loaded from local.")
 
 try:
@@ -246,7 +250,9 @@ async def split_in_batches(df: pd.DataFrame):
 
         if current_batch_id + 1 == final_batch:
 
-            final_df = pd.read_csv(f"{output_folder}/{file_prefix}{file_suffix}.csv")
+            final_df = pd.read_csv(
+                f"{output_folder}/{file_prefix}{file_suffix}.csv", dtype={"label": str}
+            )
             final_df = final_df.drop_duplicates(
                 subset=["corrected_spelling", "label"], keep="last", ignore_index=True
             )  # remove duplicates in the corrected spelling
