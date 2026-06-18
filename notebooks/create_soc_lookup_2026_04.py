@@ -31,16 +31,12 @@ knowledge_bucket = dotenv.get_key(".env", "KNOWLEDGE_BUCKET")
 # read the data
 
 try:
-    data = pd.read_csv(
-        f"{knowledge_bucket}wip_data/{file_name}{file_suffix}.csv", dtype={"label": str}
-    )
+    data = pd.read_csv(f"{knowledge_bucket}wip_data/{file_name}{file_suffix}.csv", dtype={"label": str})
     print("Database loaded from storage.")
 
 except FileNotFoundError:
     print("File not found in the specified KNOWLEDGE_BUCKET.")
-    data = pd.read_csv(
-        f"{input_folder}/{file_name}{file_suffix}.csv", dtype={"label": str}
-    )
+    data = pd.read_csv(f"{input_folder}/{file_name}{file_suffix}.csv", dtype={"label": str})
     print("Database loaded from local.")
 
 # %%
@@ -57,9 +53,6 @@ data = data[
     ]
 ]
 
-data["documents"] = data["documents"].str.strip()
-
-
 # %%
 def parse_string(text):
     """Convert string to a list of dictionaries for SOC candidates."""
@@ -70,14 +63,12 @@ def parse_string(text):
         return ast.literal_eval(processed)
     return []
 
-
 # %%
 # string to list of dictionaries
 data["llm_soc_candidates"] = data["llm_soc_candidates"].map(parse_string)
 
 # %%
 print(f"llm {data["codable"].value_counts()}")
-
 
 # %%
 def access_soc_code_from_candidate_list(row_values: list[dict]) -> list[str]:
@@ -99,7 +90,6 @@ def access_soc_code_from_candidate_list(row_values: list[dict]) -> list[str]:
         return None
     return candidates
 
-
 # %%
 def float_to_list_of_codes(row_values: float) -> str:
     """Convert float to a string of codes (str).
@@ -116,7 +106,6 @@ def float_to_list_of_codes(row_values: float) -> str:
         return codes_list
     return [row_values]
 
-
 # %%
 data["label"] = data["label"].astype(str)
 
@@ -132,7 +121,6 @@ data.loc[~msk, "llm_soc_code"] = data.loc[~msk, "llm_soc_code"].apply(
 data.loc[msk, "llm_soc_code"] = data.loc[msk, "llm_soc_candidates"].apply(
     access_soc_code_from_candidate_list
 )
-
 
 # %%
 def check_agreement(df: pd.DataFrame, df_source: str):
@@ -162,10 +150,8 @@ def check_agreement(df: pd.DataFrame, df_source: str):
         f"Agreement (label the same or within candidates) {df_source}: {agr + in_cand} ({round((agr + in_cand)/len(df), 2) * 100}% of all rows)"  # pylint: disable=C0301
     )
 
-
 # %%
 check_agreement(data, "ASHE and LLM")
-
 
 # %%
 def check_code_count(df: pd.DataFrame, df_source: str):
@@ -198,7 +184,6 @@ def check_code_count(df: pd.DataFrame, df_source: str):
         f"One code assigned {df_source}: {one_code} ({round(one_code/len(df) * 100, 2)}%)"
     )
 
-
 # %%
 check_code_count(data, "ASHE")
 
@@ -228,14 +213,13 @@ data_one_code["llm_soc_code"] = data_one_code["llm_soc_code"].astype(int)
 
 # %%
 data_one_code = data_one_code.rename(
-    columns={"corrected_spelling": "documents", "llm_soc_code": "label"}
+    columns={"llm_soc_code": "label"}
 )
 
 # %%
 data_one_code = data_one_code.drop_duplicates(
     subset=["documents", "label"], keep="last", ignore_index=True
 )
-
 
 # %%
 def load_soc_framework(filepath: str) -> pd.DataFrame:
@@ -272,7 +256,6 @@ def load_soc_framework(filepath: str) -> pd.DataFrame:
         soc_df[col] = soc_df[col].str.strip()
 
     return soc_df
-
 
 # %%
 knowledge_bucket = dotenv.get_key(".env", "KNOWLEDGE_BUCKET")
@@ -344,12 +327,6 @@ data_one_code_no_phantoms = data_one_code_no_phantoms.drop_duplicates(
 Those codes not neccessairly agree with codes initially assigned in ASHE dataset.
 """
 
-# %%
-# data_one_code_no_phantoms.to_csv("soc_data/SOC_DIRECT_LOOKUP.csv")
-
-# %%
-# data_one_code_no_phantoms.to_csv(f"{knowledge_bucket}SOC_DIRECT_LOOKUP.csv")
-
 # %% [markdown]
 # # AGREEMENT
 
@@ -414,7 +391,6 @@ print(one_code_disagreement)
 - ASHE is one of the candidates selected by LLM ('label' in 'llm_soc_candidates')
 """
 
-
 # %%
 def get_candidates_list(row: pd.Series) -> list:
     """Get a list of candidates determined by LLM.
@@ -429,7 +405,6 @@ def get_candidates_list(row: pd.Series) -> list:
     for i in row["llm_soc_candidates"]:
         candidates.append(i["soc_code"])
     return candidates
-
 
 # %%
 ashe_llm_disagreement_multi_candidate = one_code_disagreement[
@@ -462,7 +437,6 @@ soc_coding_index_file = (
     f"{knowledge_bucket}soc2020volume2thecodingindexexcel03122025.xlsx"
 )
 
-
 # %%
 def load_soc_index(filepath: str) -> pd.DataFrame:
     """Load SOC index.
@@ -494,7 +468,6 @@ def load_soc_index(filepath: str) -> pd.DataFrame:
     soc_index_df["title"] = soc_index_df["title"].str.capitalize()
 
     return soc_index_df
-
 
 # %%
 soc_list = load_soc_index(soc_coding_index_file)
@@ -548,7 +521,6 @@ data_multiple_candidates = data[data["llm_soc_candidates"].str.len() > 1].reset_
     drop=True
 )
 
-
 # %%
 def get_high_candidate(row: pd.Series) -> str:
     """Get a most likely candidate with likelihood greater than 0.9 (assessed by the LLM),
@@ -567,7 +539,6 @@ def get_high_candidate(row: pd.Series) -> str:
     if len(high_likelihood) != 1:
         return None
     return high_likelihood[0]["soc_code"]
-
 
 # %%
 def get_high_candidate_with_low_other(row: pd.Series) -> str:
@@ -591,7 +562,6 @@ def get_high_candidate_with_low_other(row: pd.Series) -> str:
     if len(high_likelihood) != 1 or len(lower_likelihood) > 0:
         return None
     return high_likelihood[0]["soc_code"]
-
 
 # %%
 data_multiple_candidates.loc[:, "most_likely_candidate"] = (
@@ -667,7 +637,15 @@ soc_lookup = (
 )
 
 # %%
+soc_lookup = soc_lookup.rename(columns={"documents": "description"})
+
+# %%
+soc_lookup = soc_lookup[["label", "description"]]
+
+# %%
 # soc_lookup.to_csv(f"{knowledge_bucket}wip_data/soc_kb_for_direct_lookup.csv")
 
 # %%
 len(soc_lookup)
+
+
