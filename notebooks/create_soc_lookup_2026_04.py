@@ -24,8 +24,8 @@ from occupational_classification.data_access.soc_data_access import (
 input_folder = "src/occupational_classification_utils/data/soc_data"
 file_name = "ashe_llm_soc_codes"
 file_suffix = "_2026_06_16"
+# file_suffix = "_2026_05_19"
 knowledge_bucket = dotenv.get_key(".env", "KNOWLEDGE_BUCKET")
-
 
 
 # %%
@@ -39,6 +39,9 @@ except FileNotFoundError:
     print("File not found in the specified KNOWLEDGE_BUCKET.")
     data = pd.read_csv(f"{input_folder}/{file_name}{file_suffix}.csv")
     print("Database loaded from local.")
+
+# data = pd.read_csv(f"{input_folder}/{file_name}{file_suffix}.csv")
+
 
 # %%
 # use only columns needed
@@ -160,9 +163,6 @@ def check_agreement(df: pd.DataFrame, df_source: str):
 
 # %%
 check_agreement(data, "ASHE and LLM")
-
-# %%
-len(data)
 
 
 # %%
@@ -668,7 +668,6 @@ soc_lookup = (
 # soc_lookup.to_csv(f"{knowledge_bucket}wip_data/SOC_DIRECT_LOOKUP.csv")
 
 # %%
-# data_one_code_no_phantoms
 len(soc_lookup)
 
 # %%

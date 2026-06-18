@@ -165,11 +165,17 @@ async def split_in_batches(document: pd.DataFrame):  # pylint: disable=R0914
                 json_file,
             )
 
-        # if current_batch_id + 1 == final_batch:
-        #     document.to_csv(
-        #         f"{knowledge_bucket}wip_data/{file_name}{output_file_name}.csv"
-        #     )
-        #     print("SAVED TO BUCKET")
+        if current_batch_id + 1 == final_batch:
+
+            final_df = pd.read_csv(f"{data_folder}/{file_name}{output_file_name}.csv")
+            final_df = final_df.drop_duplicates(
+                subset=["documents", "label"], keep="last", ignore_index=True
+            )  # remove duplicates
+            final_df.to_csv(
+                f"{knowledge_bucket}wip_data/{file_name}{output_file_name}.csv",
+                index=False,
+            )
+            print("SAVED TO BUCKET")
 
 
 if not os.path.exists(f"{data_folder}/{file_name}{output_file_name}.csv"):
