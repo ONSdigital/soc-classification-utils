@@ -57,6 +57,8 @@ data = data[
     ]
 ]
 
+data["documents"] = data["documents"].str.strip()
+
 
 # %%
 def parse_string(text):
