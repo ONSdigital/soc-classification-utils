@@ -21,7 +21,7 @@ from occupational_classification.data_access.soc_data_access import (
 )
 
 # %%
-input_folder = "src/occupational_classification_utils/data/soc_data"
+input_folder = "data/soc_data"
 file_name = "ashe_llm_soc_codes"
 file_suffix = "_2026_06_16"
 # file_suffix = "_2026_05_19"
