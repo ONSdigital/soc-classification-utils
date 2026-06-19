@@ -31,6 +31,7 @@ from occupational_classification_utils.models.response_model import (
     OpenFollowUp,
     RagResponse,
     SocResponse,
+    TopOneResponse,
     UnambiguousResponse,
 )
 
@@ -211,6 +212,63 @@ SOC_PROMPT_UNAMBIGUOUS = PromptTemplate.from_template(
     template=_core_prompt + _soc_template_unambiguous,
     partial_variables={
         "format_instructions": parser_unambiguous.get_format_instructions(),
+    },
+)
+
+_soc_template_top_one_only = """"You are an expert in occupational classifications.
+You are tasked with selecting the single most likely four-digit UK Standard
+Occupational Classification (SOC 2020) unit group from a shortlist of relevant
+candidates.
+
+Key objective:
+- Select exactly one four-digit SOC code from the shortlist.
+- The selected code must come from the shortlist only.
+- Always return the best available match, even when the evidence is imperfect.
+
+Assignment logic:
+1. Review each candidate from the shortlist against the respondent data.
+2. Assess alignment using job role, main tasks, industry context, skill level or seniority, and example activities.
+3. Focus on what the respondent mainly does, not only the employer's main activity.
+4. Choose the single strongest four-digit SOC code from the shortlist.
+5. Derive the likelihood score from two things together:
+    - direct fit: how strongly the chosen code matches the respondent data on its own merits
+    - separation: how clearly the chosen code outranks the next-best shortlisted alternatives
+6. Use only these likelihood values: 0.2, 0.4, 0.6, 0.8, or 0.9.
+7. Use the same calibration each time:
+    - 0.9: very strong direct fit and strong separation from all alternatives; core duties and context align closely; no serious conflict.
+    - 0.8: strong direct fit and clear separation; most key evidence aligns; only minor uncertainty remains.
+    - 0.6: moderate direct fit or limited separation; plausible best option, but important details are missing or one close rival remains.
+    - 0.4: weak direct fit or weak separation; chosen because it is the best available shortlist option, but substantial ambiguity remains.
+    - 0.2: very weak direct fit and weak separation; shortlist fit is poor overall, but one option must still be selected.
+8. Do not assign 0.8 or 0.9 unless both direct fit and separation are strong.
+9. Do not use the likelihood to mean probability of being correct in the abstract; use it only as a calibrated strength-of-match score within the supplied shortlist.
+10. This likelihood is not directly comparable across different cases, different shortlists, or different retrieval runs.
+11. Provide reasoning that explains which evidence supports the chosen code, which evidence weakens it, and why the next-best alternatives were ranked lower.
+
+Rules:
+- Do not invent codes outside the shortlist.
+- Prefer the most specific four-digit unit group supported by the evidence.
+- If the shortlist contains close alternatives, still choose the best one and explain the distinguishing evidence or remaining uncertainty.
+- Use only the information provided in the respondent data and shortlist.
+- Use the same likelihood value whenever the evidence profile and the margin over the next-best candidate are materially similar.
+
+===Respondent Data===
+{respondent_data}
+
+===Shortlist===
+{soc_candidates}
+
+===Output Format===
+{format_instructions}
+"""
+parser_top_one = PydanticOutputParser(
+    pydantic_object=TopOneResponse  # type: ignore[arg-type]
+)
+
+SOC_PROMPT_TOP_ONE_ONLY = PromptTemplate.from_template(
+    template=_core_prompt + _soc_template_top_one_only,
+    partial_variables={
+        "format_instructions": parser_top_one.get_format_instructions(),
     },
 )
 

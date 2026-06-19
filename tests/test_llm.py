@@ -19,10 +19,14 @@ from occupational_classification.data_access.soc_data_access import (
 from occupational_classification.hierarchy.soc_hierarchy import load_hierarchy
 
 from occupational_classification_utils.llm.llm import ClassificationLLM
-from occupational_classification_utils.llm.prompt import SA_SOC_PROMPT_RAG
+from occupational_classification_utils.llm.prompt import (
+    SA_SOC_PROMPT_RAG,
+    SOC_PROMPT_TOP_ONE_ONLY,
+)
 from occupational_classification_utils.models.response_model import (
     OpenFollowUp,
     SocResponse,
+    TopOneResponse,
     UnambiguousResponse,
 )
 
@@ -61,6 +65,26 @@ def classification_llm_with_soc_sa_rag_soc():
     ):
         llm_class = ClassificationLLM(model_name=MODEL_NAME)
         yield llm_class
+
+
+@pytest.fixture
+async def classification_llm_with_soc_top_one(mocker, mock_soc):  # pylint: disable=W0621
+    """ClassificationLLM with mocked ainvoke for top_one_soc_code."""
+    mock_object_dict = {
+        "soc_code": "1111",
+        "soc_descriptive": "Chief executives and senior officials",
+        "likelihood": 0.8,
+        "reasoning": "The job evidence aligns best with this shortlisted unit group.",
+    }
+    mock_message = mocker.Mock(spec=AIMessage)
+    mock_message.content = json.dumps(mock_object_dict)
+    mocker.patch(
+        "occupational_classification_utils.llm.llm.ChatVertexAI.ainvoke",
+        return_value=mock_message,
+    )
+    llm_class = ClassificationLLM(model_name=MODEL_NAME)
+    llm_class.soc = mock_soc
+    return llm_class
 
 
 # Test initialisation
@@ -159,6 +183,30 @@ def test_sa_soc_prompt_rag_matches_sic_rag_followup_wording():
     assert "leave followup empty." not in prompt_text
 
 
+def test_soc_prompt_top_one_only_has_selection_constraints():
+    """Top-one prompt should force a shortlist-only single selection."""
+    prompt_text = SOC_PROMPT_TOP_ONE_ONLY.template
+    assert "Select exactly one four-digit SOC code from the shortlist." in prompt_text
+    assert "The selected code must come from the shortlist only." in prompt_text
+    assert (
+        "Always return the best available match, even when the evidence is imperfect."
+        in prompt_text
+    )
+    assert "Derive the likelihood score from two things together" in prompt_text
+    assert (
+        "Use only these likelihood values: 0.2, 0.4, 0.6, 0.8, or 0.9." in prompt_text
+    )
+    assert (
+        "Do not assign 0.8 or 0.9 unless both direct fit and separation are strong."
+        in prompt_text
+    )
+    assert (
+        "not directly comparable across different cases, different shortlists, or different retrieval runs"
+        in prompt_text
+    )
+    assert "Use the same likelihood value whenever the evidence profile" in prompt_text
+
+
 @pytest.mark.llm
 async def test_llm_response_mocked_sa_rag_soc_code(
     classification_llm_with_soc_sa_rag_soc,
@@ -251,6 +299,29 @@ async def test_llm_response_mocked_get_soc_code():
 
     assert isinstance(result, SocResponse)
     assert result.soc_code == "2314"
+
+
+@pytest.mark.llm
+async def test_llm_response_mocked_top_one_soc_code(
+    classification_llm_with_soc_top_one,
+):
+    """top_one_soc_code returns a typed top-ranked SOC response."""
+    result = await classification_llm_with_soc_top_one.top_one_soc_code(
+        respondent_data={
+            "industry_descr": "school",
+            "job_title": "teacher",
+            "job_description": "teach children",
+        },
+        semantic_search_results=[
+            {
+                "distance": 0.6,
+                "title": "Chief executives and senior officials",
+                "code": "1111",
+            }
+        ],
+    )
+    assert isinstance(result, TopOneResponse)
+    assert result.soc_code == "1111"
 
 
 @pytest.mark.parametrize(
