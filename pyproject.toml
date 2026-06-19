@@ -35,7 +35,7 @@ langchain-openai = "0.3.21"
 langchain-huggingface = "0.3.0"
 pydantic = "^2.11.1"
 ipykernel = "^6.29.5"
-soc-classification-library = {git = "https://github.com/ONSdigital/soc-classification-library.git", tag = "v0.1.5"}
+soc-classification-library = {git = "https://github.com/ONSdigital/soc-classification-library.git", rev = "40cd9f0"}
 survey-assist-utils = { git = "https://github.com/ONSdigital/survey-assist-utils.git", tag = "v0.0.8" }
 jupytext = "^1.17.2"
 posthog = ">=2.4.0,<6.0.0"
