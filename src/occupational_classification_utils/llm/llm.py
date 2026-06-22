@@ -289,6 +289,11 @@ class ClassificationLLM:
             if (job_description is None or job_description in {"", " "})
             else job_description
         )
+        level_of_education = (
+            "Unknown"
+            if (level_of_education is None or level_of_education in {"", " "})
+            else level_of_education
+        )
 
         call_dict = {
             "industry_descr": industry_descr,
