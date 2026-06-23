@@ -287,7 +287,7 @@ class TopOneResponse(BaseModel):
         description="Title label associated with the selected SOC code.",
         min_length=1,
     )
-    likelihood: float = Field(
+    likelihood_score: float = Field(
         description=(
             "Likelihood of the selected SOC code relative to the other shortlisted "
             "candidates, between 0 and 1."

@@ -227,23 +227,22 @@ Key objective:
 
 Assignment logic:
 1. Review each candidate from the shortlist against the respondent data.
-2. Assess alignment using job role, main tasks, industry context, skill level or seniority, and example activities.
-3. Focus on what the respondent mainly does, not only the employer's main activity.
-4. Choose the single strongest four-digit SOC code from the shortlist.
+2. Assess alignment of the job role (main tasks, industry context, skill level or seniority) with the candidate SOC code details.
+3. Focus on the respondent main job role, not only the employer's main activity.
+4. Choose the single four-digit SOC code from the shortlist that best matches the respondent's main job role and context.
 5. Derive the likelihood score from two things together:
     - direct fit: how strongly the chosen code matches the respondent data on its own merits
     - separation: how clearly the chosen code outranks the next-best shortlisted alternatives
 6. Use only these likelihood values: 0.2, 0.4, 0.6, 0.8, or 0.9.
-7. Use the same calibration each time:
-    - 0.9: very strong direct fit and strong separation from all alternatives; core duties and context align closely; no serious conflict.
-    - 0.8: strong direct fit and clear separation; most key evidence aligns; only minor uncertainty remains.
+7. Use this calibration for likelihood scores:
+    - 0.9: very strong direct fit and strong separation from all alternatives; core duties and context align closely; no conflict or ambiguity.
+    - 0.8: strong direct fit and clear separation; most key evidence is present and aligned; only minor uncertainty remains.
     - 0.6: moderate direct fit or limited separation; plausible best option, but important details are missing or one close rival remains.
     - 0.4: weak direct fit or weak separation; chosen because it is the best available shortlist option, but substantial ambiguity remains.
     - 0.2: very weak direct fit and weak separation; shortlist fit is poor overall, but one option must still be selected.
-8. Do not assign 0.8 or 0.9 unless both direct fit and separation are strong.
-9. Do not use the likelihood to mean probability of being correct in the abstract; use it only as a calibrated strength-of-match score within the supplied shortlist.
-10. This likelihood is not directly comparable across different cases, different shortlists, or different retrieval runs.
-11. Provide reasoning that explains which evidence supports the chosen code, which evidence weakens it, and why the next-best alternatives were ranked lower.
+8. Assign 0.8 or 0.9 likelihood score only if both direct fit and separation are strong. Additional information is not needed to distinguish the chosen code from the next-best alternative.
+9. Do not use the likelihood score to mean probability of being correct in the abstract; use it only as a calibrated strength-of-match score within the supplied shortlist.
+10. Provide reasoning that explains which evidence supports the chosen code, which evidence weakens it, and why the next-best alternatives were ranked lower.
 
 Rules:
 - Do not invent codes outside the shortlist.

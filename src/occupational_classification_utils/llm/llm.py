@@ -291,7 +291,7 @@ class ClassificationLLM:
             return TopOneResponse(
                 soc_code=fallback_item.soc_code,
                 soc_title=fallback_item.group_title,
-                likelihood=0.1,
+                likelihood_score=0.1,
                 reasoning=reasoning,
             )
 
