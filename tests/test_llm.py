@@ -151,13 +151,13 @@ def test_prompt_candidate_strict_hierarchy_lookup(mock_vertex_ai):
 @pytest.mark.parametrize(
     "code, expected_output",
     [
-        ("1", ["Code", "Title", "Details"]),
-        ("1111", ["Code", "Title", "Details", "Includes"]),
+        ("1", ["Code", "Title", "Description"]),
+        ("1111", ["Code", "Title", "Description", "Example job tasks"]),
     ],
 )
 @pytest.mark.llm
 def test_prompt_candidate_include_all(prompt_candidate_soc, code, expected_output):
-    """include_all adds Details and Includes (tasks) like SIC _prompt_candidate."""
+    """include_all adds description and tasks when available."""
     result = prompt_candidate_soc._prompt_candidate(  # pylint: disable=protected-access
         code, ["Example title"], include_all=True
     )
@@ -197,12 +197,9 @@ def test_soc_prompt_top_one_only_has_selection_constraints():
         "Use only these likelihood values: 0.2, 0.4, 0.6, 0.8, or 0.9." in prompt_text
     )
     assert (
-        "Do not assign 0.8 or 0.9 unless both direct fit and separation are strong."
-        in prompt_text
-    )
-    assert (
-        "not directly comparable across different cases, different shortlists, or different retrieval runs"
-        in prompt_text
+        "Assign 0.8 or 0.9 only if both direct fit and separation are strong, "
+        "with no additional information required to resolve ambiguity between the "
+        "chosen code and the next-best alternative." in prompt_text
     )
     assert "Use the same likelihood value whenever the evidence profile" in prompt_text
 
