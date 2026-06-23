@@ -199,10 +199,10 @@ class ClassificationLLM:
 
         item = self.soc[code]
         txt = "{" + f"Code: {item.soc_code}, Title: {item.group_title}"
-        if item.group_description:
-            txt += f", Description: {item.group_description}"
+        txt += f", Example job titles: {', '.join(job_titles)}"
         if include_all:
-            txt += f", Example job titles: {', '.join(job_titles)}"
+            if item.group_description:
+                txt += f", Description: {item.group_description}"
             tasks = item.tasks or self.soc_meta.get(code, {}).get("tasks") or []
             if tasks:
                 txt += f", Example job tasks: {', '.join(tasks)}"
