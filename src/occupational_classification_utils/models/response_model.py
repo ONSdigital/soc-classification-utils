@@ -283,8 +283,8 @@ class TopOneResponse(BaseModel):
         description="Selected four-digit SOC code from the provided shortlist.",
         min_length=1,
     )
-    soc_descriptive: str = Field(
-        description="Descriptive label associated with the selected SOC code.",
+    soc_title: str = Field(
+        description="Title label associated with the selected SOC code.",
         min_length=1,
     )
     likelihood: float = Field(

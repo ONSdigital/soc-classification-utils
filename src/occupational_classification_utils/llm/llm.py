@@ -199,13 +199,13 @@ class ClassificationLLM:
 
         item = self.soc[code]
         txt = "{" + f"Code: {item.soc_code}, Title: {item.group_title}"
-        txt += f", Example job_titles: {', '.join(job_titles)}"
+        if item.group_description:
+            txt += f", Description: {item.group_description}"
         if include_all:
-            if item.group_description:
-                txt += f", Details: {item.group_description}"
+            txt += f", Example job titles: {', '.join(job_titles)}"
             tasks = item.tasks or self.soc_meta.get(code, {}).get("tasks") or []
             if tasks:
-                txt += f", Includes: {', '.join(tasks)}"
+                txt += f", Example job tasks: {', '.join(tasks)}"
         return txt + "}"
 
     def _prompt_candidate_list(
@@ -290,7 +290,7 @@ class ClassificationLLM:
             fallback_item = self.soc[fallback_code]
             return TopOneResponse(
                 soc_code=fallback_item.soc_code,
-                soc_descriptive=fallback_item.group_title,
+                soc_title=fallback_item.group_title,
                 likelihood=0.1,
                 reasoning=reasoning,
             )
