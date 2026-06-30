@@ -276,6 +276,34 @@ class SurveyAssistSocResponse(BaseModel):
     )
 
 
+class TopOneResponse(BaseModel):
+    """Top-ranked SOC code selected from a supplied shortlist."""
+
+    soc_code: str = Field(
+        description="Selected four-digit SOC code from the provided shortlist.",
+        min_length=1,
+    )
+    soc_title: str = Field(
+        description="Title label associated with the selected SOC code.",
+        min_length=1,
+    )
+    likelihood_score: float = Field(
+        description=(
+            "Likelihood of the selected SOC code relative to the other shortlisted "
+            "candidates, between 0 and 1."
+        ),
+        ge=0.0,
+        le=1.0,
+    )
+    reasoning: str = Field(
+        description=(
+            "Reasoning explaining why the selected SOC code is the strongest "
+            "match from the shortlist and why the likelihood is as reported."
+        ),
+        min_length=1,
+    )
+
+
 class UnambiguousResponse(BaseModel):
     """Represents a response model for classification code assignment (two-step SOC).
 

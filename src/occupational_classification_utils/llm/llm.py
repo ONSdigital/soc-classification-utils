@@ -38,12 +38,14 @@ from occupational_classification_utils.llm.prompt import (
     SA_SOC_PROMPT_RAG,
     SOC_PROMPT_OPENFOLLOWUP,
     SOC_PROMPT_PYDANTIC,
+    SOC_PROMPT_TOP_ONE_ONLY,
     SOC_PROMPT_UNAMBIGUOUS,
 )
 from occupational_classification_utils.models.response_model import (
     OpenFollowUp,
     RagCandidate,
     SocResponse,
+    TopOneResponse,
     UnambiguousResponse,
 )
 from occupational_classification_utils.utils.constants import truncate_identifier
@@ -114,6 +116,7 @@ class ClassificationLLM:
         self.sa_soc_prompt_rag = SA_SOC_PROMPT_RAG
         self.soc_prompt_unambiguous = SOC_PROMPT_UNAMBIGUOUS
         self.soc_prompt_openfollowup = SOC_PROMPT_OPENFOLLOWUP
+        self.soc_prompt_top_one = SOC_PROMPT_TOP_ONE_ONLY
         self.soc: SOC | None = None
         self.verbose = verbose
 
@@ -196,13 +199,13 @@ class ClassificationLLM:
 
         item = self.soc[code]
         txt = "{" + f"Code: {item.soc_code}, Title: {item.group_title}"
-        txt += f", Example job_titles: {', '.join(job_titles)}"
+        txt += f", Example job titles: {', '.join(job_titles)}"
         if include_all:
             if item.group_description:
-                txt += f", Details: {item.group_description}"
+                txt += f", Description: {item.group_description}"
             tasks = item.tasks or self.soc_meta.get(code, {}).get("tasks") or []
             if tasks:
-                txt += f", Includes: {', '.join(tasks)}"
+                txt += f", Example job tasks: {', '.join(tasks)}"
         return txt + "}"
 
     def _prompt_candidate_list(
@@ -262,6 +265,97 @@ class ClassificationLLM:
                 soc_candidates = soc_candidates[:nn]
 
         return "\n".join(soc_candidates)
+
+    async def top_one_soc_code(
+        self,
+        respondent_data: dict[str, Any],
+        semantic_search_results: list[dict[str, Any]],
+        candidates_limit: int = config["llm"]["candidates_limit"],
+        code_digits: int = 4,
+    ) -> TopOneResponse:
+        """Pick the strongest SOC candidate from a semantic search shortlist.
+
+        Always returns one shortlisted SOC code with a likelihood score reflecting
+        confidence relative to the other candidates.
+        """
+
+        def fallback_response(reasoning: str) -> TopOneResponse:
+            if self.soc is None:
+                self.soc = load_soc_hierarchy(
+                    config["lookups"]["soc_index"],
+                    config["lookups"]["soc_structure"],
+                )
+
+            fallback_code = str(semantic_search_results[0]["code"])[:code_digits]
+            fallback_item = self.soc[fallback_code]
+            return TopOneResponse(
+                soc_code=fallback_item.soc_code,
+                soc_title=fallback_item.group_title,
+                likelihood_score=0.1,
+                reasoning=reasoning,
+            )
+
+        soc_candidates = self._prompt_candidate_list(
+            short_list=semantic_search_results,
+            code_digits=code_digits,
+            candidates_limit=candidates_limit,
+        )
+        call_dict = {
+            "respondent_data": respondent_data,
+            "soc_candidates": soc_candidates,
+        }
+
+        if self.verbose:
+            final_prompt = self.soc_prompt_top_one.format(**call_dict)
+            logger.debug(final_prompt)
+
+        chain = self.soc_prompt_top_one | self.llm
+        try:
+            response = await chain.ainvoke(call_dict, return_only_outputs=True)
+        except (ValueError, AttributeError) as err:
+            logger.error(f"Error from chain, exit early: {err}", error=str(err))
+            return fallback_response("Error from chain, exit early")
+
+        if self.verbose:
+            logger.debug(f"LLM response: {response}")
+
+        parser = PydanticOutputParser(pydantic_object=TopOneResponse)
+        try:
+            validated_answer = parser.parse(str(response.content))
+        except (ValueError, AttributeError) as parse_error:
+            logger.error(
+                f"Failed to parse response: {parse_error}", error=str(parse_error)
+            )
+            logger.warning(
+                "Failed to parse response", response_content=str(response.content)
+            )
+
+            try:
+                fix_chain = FIX_PARSING_PROMPT | self.llm
+                response = await fix_chain.ainvoke(
+                    {
+                        "llm_output": str(response.content),
+                        "format_instructions": parser.get_format_instructions(),
+                    },
+                    return_only_outputs=True,
+                )
+                validated_answer = parser.parse(str(response.content))
+                logger.debug("Successfully parsed reformatted response.")
+            except (ValueError, AttributeError) as parse_error2:
+                logger.error(
+                    f"Failed to parse response again: {parse_error2}",
+                    error=str(parse_error2),
+                )
+                logger.warning(
+                    "Failed to parse response again",
+                    response_content=str(response.content),
+                )
+                reasoning = (
+                    f"ERROR parse_error=<{parse_error2}>, response=<{response.content}>"
+                )
+                validated_answer = fallback_response(reasoning)
+
+        return validated_answer
 
     async def unambiguous_soc_code(  # noqa: PLR0913
         self,
