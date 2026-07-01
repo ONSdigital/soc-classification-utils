@@ -305,61 +305,89 @@ class TopOneResponse(BaseModel):
 
 
 class UnambiguousResponse(BaseModel):
-    """Represents a response model for classification code assignment (two-step SOC).
+    """Represents a response model for classification code assignment.
 
-    Same generic field names as SIC ``UnambiguousResponse`` for parity across schemes.
+    Attributes:
+        codable (bool): True only if enough information is provided to assign
+            an unambiguous single classification code, False otherwise.
+        class_code (Optional[str]): Full classification code (to the required number of digits)
+            assigned based on provided respondent's data. Must be present if codable=True,
+            must be None if codable=False.
+        class_descriptive (Optional[str]): Descriptive label of the classification category.
+            Must be present if codable=True, must be None if codable=False.
+        alt_candidates (list[RagCandidate]): Short list of possible classification codes with their
+            descriptive labels and estimated likelihoods.
+        reasoning (str): Step by step reasoning behind the classification selected.
     """
 
     codable: bool = Field(
-        description=(
-            "True only if enough information is provided to decide an unambiguous "
-            "classification code, False otherwise."
-        )
+        description="True only if enough information is provided to decide an unambiguous "
+        "classification code, False otherwise."
     )
+
     class_code: str | None = Field(
         default=None,
-        description=(
-            "Full classification code assigned from respondent data. "
-            "Present if codable=True, None if codable=False."
-        ),
+        description="Full classification code (to the required number of digits) "
+        "assigned based on provided respondent's data. Must be present if codable=True, "
+        "must be None if codable=False.",
     )
+
     class_descriptive: str | None = Field(
         default=None,
-        description=(
-            "Descriptive label for class_code. Present if codable=True, "
-            "None if codable=False."
-        ),
+        description="Descriptive label of the classification category. "
+        "Must be present if codable=True, must be None if codable=False.",
     )
+
     alt_candidates: list[RagCandidate] = Field(
         default_factory=list,
-        description="Short list of possible classification codes with likelihoods.",
-        min_length=1,
-        max_length=10,
+        description="Short list of possible classification codes with their "
+        "descriptive labels and estimated likelihoods.",
+        max_length=10,  # Limit to less than 10 candidates
     )
+
     reasoning: str = Field(
         description="Step by step reasoning behind the classification selected.",
-        min_length=50,
+        min_length=50,  # Ensure detailed reasoning is provided
     )
 
     @field_validator("alt_candidates")
     @classmethod
-    def validate_alt_candidates(cls, v: list[RagCandidate]) -> list[RagCandidate]:
-        """Validate alternative candidate count."""
-        if not 1 <= len(v) <= MAX_ALT_CANDIDATES:
-            raise ValueError("alt_candidates must contain between 1 and 10 items.")
+    def validate_alt_candidates(cls, v):
+        """Validates the number of alternative candidates.
+
+        Ensures that the number of candidates is less or equal to the maximum allowed.
+
+        Args:
+            v (list): The list of alternative candidates.
+
+        Returns:
+            list: The validated list of candidates.
+
+        Raises:
+            ValueError: If the number of candidates is not within the allowed range.
+        """
+        if not len(v) <= MAX_ALT_CANDIDATES:
+            raise ValueError("alt_candidates must contain no more than 10 items.")
         return v
 
 
 class OpenFollowUp(BaseModel):
-    """Open-ended follow-up question when SOC cannot be assigned unambiguously."""
+    """Represents a response model for open ended follow-up question.
+
+    Attributes:
+        followup (str): Question to ask user in order to collect
+            additional information to enable reliable classification assignment.
+        reasoning (str): Reasoning explaining how follow-up question will help
+            assign classification code.
+    """
 
     followup: str | None = Field(
-        description=(
-            "Question to collect additional information for reliable SOC assignment."
-        ),
+        description="""Question to ask user in order to collect additional information
+        to enable reliable classification assignment.""",
         default="",
     )
     reasoning: str = Field(
-        description="Reasoning explaining how the follow-up question helps classification.",
+        description="""Reasoning explaining how follow-up question will help
+            assign classification code.""",
         default="",
     )

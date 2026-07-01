@@ -105,6 +105,7 @@ Always provide reasoning for your decision.
 - Company's main activity: {industry_descr}
 - Job Title: {job_title}
 - Job Description: {job_description}
+- Level of Education: {level_of_education}
 
 ===Relevant subset of UK SOC 2020===
 {soc_index}
@@ -156,6 +157,7 @@ GENERAL_PROMPT_RAG = PromptTemplate.from_template(
     },
 )
 
+
 FIX_PARSING_PROMPT = PromptTemplate.from_template(
     """You are a meticulous assistant tasked with ensuring that
 the output from a language model adheres strictly to the required JSON format.
@@ -197,6 +199,7 @@ Follow these steps in order:
 - Company's main activity: {industry_descr}
 - Job Title: {job_title}
 - Job Description: {job_description}
+- Level of Education: {level_of_education}
 
 ===Shortlist===
 {soc_candidates}
@@ -285,6 +288,7 @@ Inputs
 - Company's main activity: {industry_descr}
 - Job title: {job_title}
 - Job description: {job_description}
+- Level of Education: {level_of_education}
 - Shortlist from previous model: {llm_output}
 - Note: These are candidate occupational categories; do not mention codes or "SOC"
 to the respondent.

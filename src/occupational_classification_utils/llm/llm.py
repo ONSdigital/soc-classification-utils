@@ -125,7 +125,7 @@ class ClassificationLLM:
         self,
         job_title: str,
         job_description: str,
-        level_of_education: str,
+        level_of_education: str | None,
         manage_others: bool,
         industry_descr: str,
     ) -> SocResponse:
@@ -363,6 +363,7 @@ class ClassificationLLM:
         semantic_search_results: list[dict],
         job_title: str | None = None,
         job_description: str | None = None,
+        level_of_education: str | None = None,
         candidates_limit: int = config["llm"]["candidates_limit"],
         code_digits: int = config["llm"]["code_digits"],
         correlation_id: str | None = None,
@@ -382,11 +383,17 @@ class ClassificationLLM:
             if (job_description is None or job_description in {"", " "})
             else job_description
         )
+        level_of_education = (
+            "Unknown"
+            if (level_of_education is None or level_of_education in {"", " "})
+            else level_of_education
+        )
 
         call_dict = {
             "industry_descr": industry_descr,
             "job_title": job_title,
             "job_description": job_description,
+            "level_of_education": level_of_education,
             "soc_candidates": soc_candidates,
         }
 
@@ -399,6 +406,7 @@ class ClassificationLLM:
             "LLM request sent - unambiguous_soc_code",
             job_title=truncate_identifier(job_title),
             job_description=truncate_identifier(job_description),
+            level_of_education=truncate_identifier(str(level_of_education)),
             industry_descr=truncate_identifier(industry_descr),
             correlation_id=correlation_id or "",
         )
@@ -485,19 +493,42 @@ class ClassificationLLM:
 
         return validated_answer, call_dict
 
-    async def formulate_open_question(
+    async def formulate_open_question(  # noqa: PLR0913
         self,
         industry_descr: str,
         job_title: str | None = None,
         job_description: str | None = None,
+        level_of_education: str | None = None,
         llm_output: RagCandidate | None = None,
         correlation_id: str | None = None,
-    ) -> tuple[OpenFollowUp, dict[str, Any]]:
-        """Formulate an open-ended follow-up (mirrors SIC formulate_open_question)."""
+    ) -> tuple[OpenFollowUp, Any]:
+        """Formulates an open-ended question using respondent data and survey design guidelines.
 
-        def prep_call_dict(industry_descr, job_title, job_description, llm_output):
+        Args:
+            industry_descr (str): The description of the industry.
+            job_title (str, optional): The job title. Defaults to None.
+            job_description (str, optional): The job description. Defaults to None.
+            level_of_education (str, optional): The level od education. Defaults to None.
+            llm_output (RagCandidate, optional): The response from the LLM model.
+            correlation_id (str, optional): Optional correlation ID for request tracking.
+
+        Returns:
+            OpenFollowUp: The generated response to the query.
+
+        Raises:
+            ValueError: If there is an error during the parsing of the response.
+            ValueError: If the default embedding handler is required but
+                not loaded correctly.
+
+        """
+
+        def prep_call_dict(
+            industry_descr, job_title, job_description, level_of_education, llm_output
+        ):
+            # Helper function to prepare the call dictionary
             is_job_title_present = job_title is None or job_title in {"", " "}
             job_title = "Unknown" if is_job_title_present else job_title
+
             is_job_description_present = job_description is None or job_description in {
                 "",
                 " ",
@@ -505,17 +536,26 @@ class ClassificationLLM:
             job_description = (
                 "Unknown" if is_job_description_present else job_description
             )
-            return {
+            level_of_education = (
+                "Unknown"
+                if (level_of_education is None or level_of_education in {"", " "})
+                else level_of_education
+            )
+
+            call_dict = {
                 "industry_descr": industry_descr,
                 "job_title": job_title,
                 "job_description": job_description,
+                "level_of_education": level_of_education,
                 "llm_output": str(llm_output),
             }
+            return call_dict
 
         call_dict = prep_call_dict(
             industry_descr=industry_descr,
             job_title=job_title,
             job_description=job_description,
+            level_of_education=level_of_education,
             llm_output=llm_output,
         )
 
@@ -524,10 +564,13 @@ class ClassificationLLM:
             logger.debug(final_prompt)
 
         chain = self.soc_prompt_openfollowup | self.llm
+
+        # Log LLM request sent
         logger.info(
             "LLM request sent - formulate_open_question",
             job_title=truncate_identifier(job_title),
             job_description=truncate_identifier(job_description),
+            level_of_education=truncate_identifier(str(level_of_education)),
             industry_descr=truncate_identifier(industry_descr),
             correlation_id=correlation_id or "",
         )
@@ -553,9 +596,11 @@ class ClassificationLLM:
 
         llm_duration_ms = int((time.perf_counter() - llm_start) * 1000)
 
+        # Parse the output to the desired format
         parser = PydanticOutputParser(pydantic_object=OpenFollowUp)
         try:
             validated_answer = parser.parse(str(response.content))
+            # Log LLM response received after successful parse
             has_followup = bool(getattr(validated_answer, "followup", None))
             logger.info(
                 "LLM response received for open question prompt",
@@ -581,8 +626,8 @@ class ClassificationLLM:
                 correlation_id=correlation_id or "",
             )
             try:
-                fix_chain = FIX_PARSING_PROMPT | self.llm
-                response = await fix_chain.ainvoke(
+                chain = FIX_PARSING_PROMPT | self.llm
+                response = await chain.ainvoke(
                     {
                         "llm_output": str(response.content),
                         "format_instructions": parser.get_format_instructions(),
@@ -591,6 +636,7 @@ class ClassificationLLM:
                 )
                 validated_answer = parser.parse(str(response.content))
                 logger.debug("Successfully parsed reformatted response.")
+
             except (ValueError, AttributeError) as parse_error2:
                 logger.error(
                     f"Failed to parse response again: {parse_error2}",
@@ -618,6 +664,7 @@ class ClassificationLLM:
         industry_descr: str,
         job_title: str | None = None,
         job_description: str | None = None,
+        level_of_education: str | None = None,
         code_digits: int = config["llm"]["code_digits"],
         candidates_limit: int = config["llm"]["candidates_limit"],
         short_list: list[dict[Any, Any]] | None = None,
@@ -631,6 +678,7 @@ class ClassificationLLM:
             industry_descr (str): The description of the industry.
             job_title (str, optional): The job title. Defaults to None.
             job_description (str, optional): The job description. Defaults to None.
+            level_of_education (str): The level of education required for the job.
             code_digits (int, optional): The number of digits in the generated
                 SOC code. Defaults to 4.
             candidates_limit (int, optional): The maximum number of SOC code candidates
@@ -648,7 +696,9 @@ class ClassificationLLM:
 
         """
 
-        def prep_call_dict(industry_descr, job_title, job_description, soc_codes):
+        def prep_call_dict(
+            industry_descr, job_title, job_description, level_of_education, soc_codes
+        ):
             # Helper function to prepare the call dictionary
             is_job_title_present = job_title is None or job_title in {"", " "}
             job_title = "Unknown" if is_job_title_present else job_title
@@ -665,6 +715,7 @@ class ClassificationLLM:
                 "industry_descr": industry_descr,
                 "job_title": job_title,
                 "job_description": job_description,
+                "level_of_education": level_of_education,
                 "soc_index": soc_codes,
             }
             return call_dict
@@ -682,6 +733,7 @@ class ClassificationLLM:
             industry_descr=industry_descr,
             job_title=job_title,
             job_description=job_description,
+            level_of_education=level_of_education,
             soc_codes=soc_codes,
         )
 

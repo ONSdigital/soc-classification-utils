@@ -16,7 +16,9 @@ from occupational_classification.data_access.soc_data_access import (
 from occupational_classification.data_access.soc_data_access import (
     load_soc_structure as lib_load_soc_structure,
 )
-from occupational_classification.hierarchy.soc_hierarchy import load_hierarchy
+from occupational_classification.hierarchy.soc_hierarchy import (
+    load_hierarchy,
+)
 
 from occupational_classification_utils.llm.llm import ClassificationLLM
 from occupational_classification_utils.llm.prompt import (
@@ -493,32 +495,6 @@ async def test_unambiguous_soc_code_followup_is_str(
     assert isinstance(result, str)
 
 
-@pytest.mark.llm
-async def test_llm_response_mocked_formulate_open_question(
-    mocker, prompt_candidate_soc
-):
-    """formulate_open_question returns typed response and call dict with mocked output."""
-    mock_object_dict = {"class_code": "", "class_descriptive": "", "likelihood": 0.5}
-    mock_object_json = json.dumps(mock_object_dict)
-
-    mock_message = mocker.Mock(spec=AIMessage)
-    mock_message.content = mock_object_json
-
-    mocker.patch(
-        "occupational_classification_utils.llm.llm.ChatVertexAI.ainvoke",
-        return_value=mock_message,
-    )
-
-    result = await prompt_candidate_soc.formulate_open_question(
-        industry_descr="",
-        job_title="",
-        job_description="",
-        llm_output="",
-    )
-    assert isinstance(result[0], OpenFollowUp)
-    assert isinstance(result[1], dict)
-
-
 @pytest.fixture
 def mock_soc():
     """Minimal SOC hierarchy from the packaged example lookup table."""
@@ -528,3 +504,29 @@ def mock_soc():
         idx = lib_load_soc_index(p)
         soc = load_hierarchy(lib_load_soc_structure(p), idx)
     return soc
+
+
+@pytest.mark.llm
+async def test_llm_response_mocked_formulate_open_question(
+    mocker, prompt_candidate_soc
+):
+    mock_object_dict = {"class_code": "", "class_descriptive": "", "likelihood": 0.5}
+    mock_object_json = json.dumps(mock_object_dict)
+
+    mock_message = mocker.Mock(spec=AIMessage)
+    mock_message.content = mock_object_json
+
+    mock_patcher = mocker.patch(  # noqa: F841
+        "occupational_classification_utils.llm.llm.ChatVertexAI.ainvoke",
+        return_value=mock_message,
+    )
+
+    result = await prompt_candidate_soc.formulate_open_question(
+        industry_descr="",
+        job_title="",
+        job_description="",
+        level_of_education="",
+        llm_output="",
+    )
+    assert isinstance(result[0], OpenFollowUp)
+    assert isinstance(result[1], dict)
