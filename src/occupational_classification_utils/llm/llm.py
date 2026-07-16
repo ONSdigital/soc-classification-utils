@@ -357,13 +357,10 @@ class ClassificationLLM:
 
         return validated_answer
 
-    async def unambiguous_soc_code(  # noqa: PLR0913
+    async def unambiguous_soc_code(
         self,
-        industry_descr: str,
+        respondent_data: dict[str, Any],
         semantic_search_results: list[dict],
-        job_title: str | None = None,
-        job_description: str | None = None,
-        level_of_education: str | None = None,
         candidates_limit: int = config["llm"]["candidates_limit"],
         code_digits: int = config["llm"]["code_digits"],
         correlation_id: str | None = None,
@@ -375,25 +372,8 @@ class ClassificationLLM:
             candidates_limit=candidates_limit,
         )
 
-        job_title = (
-            "Unknown" if (job_title is None or job_title in {"", " "}) else job_title
-        )
-        job_description = (
-            "Unknown"
-            if (job_description is None or job_description in {"", " "})
-            else job_description
-        )
-        level_of_education = (
-            "Unknown"
-            if (level_of_education is None or level_of_education in {"", " "})
-            else level_of_education
-        )
-
         call_dict = {
-            "industry_descr": industry_descr,
-            "job_title": job_title,
-            "job_description": job_description,
-            "level_of_education": level_of_education,
+            "respondent_data": respondent_data,
             "soc_candidates": soc_candidates,
         }
 
@@ -404,10 +384,7 @@ class ClassificationLLM:
         chain = self.soc_prompt_unambiguous | self.llm
         logger.info(
             "LLM request sent - unambiguous_soc_code",
-            job_title=truncate_identifier(job_title),
-            job_description=truncate_identifier(job_description),
-            level_of_education=truncate_identifier(str(level_of_education)),
-            industry_descr=truncate_identifier(industry_descr),
+            respondent_data=truncate_identifier(str(respondent_data)),
             correlation_id=correlation_id or "",
         )
         llm_start = time.perf_counter()
@@ -493,22 +470,16 @@ class ClassificationLLM:
 
         return validated_answer, call_dict
 
-    async def formulate_open_question(  # noqa: PLR0913
+    async def formulate_open_question(
         self,
-        industry_descr: str,
-        job_title: str | None = None,
-        job_description: str | None = None,
-        level_of_education: str | None = None,
+        respondent_data: dict[str, Any],
         llm_output: RagCandidate | None = None,
         correlation_id: str | None = None,
     ) -> tuple[OpenFollowUp, Any]:
         """Formulates an open-ended question using respondent data and survey design guidelines.
 
         Args:
-            industry_descr (str): The description of the industry.
-            job_title (str, optional): The job title. Defaults to None.
-            job_description (str, optional): The job description. Defaults to None.
-            level_of_education (str, optional): The level od education. Defaults to None.
+            respondent_data (dict): A dictionary containing responses collected from respondent.
             llm_output (RagCandidate, optional): The response from the LLM model.
             correlation_id (str, optional): Optional correlation ID for request tracking.
 
@@ -521,43 +492,10 @@ class ClassificationLLM:
                 not loaded correctly.
 
         """
-
-        def prep_call_dict(
-            industry_descr, job_title, job_description, level_of_education, llm_output
-        ):
-            # Helper function to prepare the call dictionary
-            is_job_title_present = job_title is None or job_title in {"", " "}
-            job_title = "Unknown" if is_job_title_present else job_title
-
-            is_job_description_present = job_description is None or job_description in {
-                "",
-                " ",
-            }
-            job_description = (
-                "Unknown" if is_job_description_present else job_description
-            )
-            level_of_education = (
-                "Unknown"
-                if (level_of_education is None or level_of_education in {"", " "})
-                else level_of_education
-            )
-
-            call_dict = {
-                "industry_descr": industry_descr,
-                "job_title": job_title,
-                "job_description": job_description,
-                "level_of_education": level_of_education,
-                "llm_output": str(llm_output),
-            }
-            return call_dict
-
-        call_dict = prep_call_dict(
-            industry_descr=industry_descr,
-            job_title=job_title,
-            job_description=job_description,
-            level_of_education=level_of_education,
-            llm_output=llm_output,
-        )
+        call_dict = {
+            "respondent_data": respondent_data,
+            "llm_output": str(llm_output),
+        }
 
         if self.verbose:
             final_prompt = self.soc_prompt_openfollowup.format(**call_dict)
@@ -568,10 +506,7 @@ class ClassificationLLM:
         # Log LLM request sent
         logger.info(
             "LLM request sent - formulate_open_question",
-            job_title=truncate_identifier(job_title),
-            job_description=truncate_identifier(job_description),
-            level_of_education=truncate_identifier(str(level_of_education)),
-            industry_descr=truncate_identifier(industry_descr),
+            respondent_data=respondent_data,
             correlation_id=correlation_id or "",
         )
         llm_start = time.perf_counter()
