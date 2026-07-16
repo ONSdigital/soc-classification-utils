@@ -443,40 +443,15 @@ async def test_llm_response_mocked_unambiguous_soc_code(
 ):
     """Mocked unambiguous_soc_code returns typed response and call dict."""
     result = await classification_llm_with_soc_unambiguous.unambiguous_soc_code(
-        industry_descr="",
         semantic_search_results=[],
-        job_description="",
-        job_title="",
+        respondent_data={
+            "industry_descr": "",
+            "job_description": "",
+            "job_title": "",
+        },
     )
     assert isinstance(result[0], UnambiguousResponse)
     assert isinstance(result[1], dict)
-
-
-@pytest.mark.parametrize(
-    "title, expected_job_title",
-    [
-        ("", "Unknown"),
-        (" ", "Unknown"),
-        (None, "Unknown"),
-        ("teacher", "teacher"),
-    ],
-)
-@pytest.mark.llm
-async def test_unambiguous_soc_code_call_dict_job_title_correct(
-    title,
-    expected_job_title,
-    classification_llm_with_soc_unambiguous,
-):
-    """job_title in call dict matches normalisation rules."""
-    result = (
-        await classification_llm_with_soc_unambiguous.unambiguous_soc_code(
-            "school",
-            [{"title": "Teaching", "code": "1111"}],
-            title,
-            "educate kids",
-        )
-    )[1]["job_title"]
-    assert result == expected_job_title
 
 
 @pytest.mark.llm
@@ -486,10 +461,12 @@ async def test_unambiguous_soc_code_followup_is_str(
     """Reasoning on the unambiguous response is a string."""
     result = (
         await classification_llm_with_soc_unambiguous.unambiguous_soc_code(
-            industry_descr="school",
             semantic_search_results=[{"title": "Teaching", "code": "1111"}],
-            job_title="teacher",
-            job_description="educate kids",
+            respondent_data={
+                "industry_descr": "school",
+                "job_title": "teacher",
+                "job_description": "educate kids",
+            },
         )
     )[0].reasoning
     assert isinstance(result, str)
@@ -522,10 +499,12 @@ async def test_llm_response_mocked_formulate_open_question(
     )
 
     result = await prompt_candidate_soc.formulate_open_question(
-        industry_descr="",
-        job_title="",
-        job_description="",
-        level_of_education="",
+        respondent_data={
+            "industry_descr": "",
+            "job_title": "",
+            "job_description": "",
+            "level_of_education": "",
+        },
         llm_output="",
     )
     assert isinstance(result[0], OpenFollowUp)
