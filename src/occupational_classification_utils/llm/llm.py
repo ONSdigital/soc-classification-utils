@@ -384,7 +384,7 @@ class ClassificationLLM:
         chain = self.soc_prompt_unambiguous | self.llm
         logger.info(
             "LLM request sent - unambiguous_soc_code",
-            respondent_data=truncate_identifier(str(respondent_data)),
+            **{k: truncate_identifier(str(v)) for k, v in respondent_data.items()},
             correlation_id=correlation_id or "",
         )
         llm_start = time.perf_counter()
