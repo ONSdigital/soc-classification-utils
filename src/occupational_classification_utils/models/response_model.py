@@ -386,6 +386,11 @@ class OpenFollowUp(BaseModel):
         to enable reliable classification assignment.""",
         default="",
     )
+    followup_examples: str | None = Field(
+        description="""Examples of answers to the follow-up question that would
+        help assign classification code.""",
+        default=None,
+    )
     reasoning: str = Field(
         description="""Reasoning explaining how follow-up question will help
             assign classification code.""",
