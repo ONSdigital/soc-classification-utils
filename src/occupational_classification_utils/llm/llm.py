@@ -49,6 +49,9 @@ from occupational_classification_utils.models.response_model import (
     UnambiguousResponse,
 )
 from occupational_classification_utils.utils.constants import truncate_identifier
+from occupational_classification_utils.utils.prep_respondent_data import (
+    respondent_data_to_dict,
+)
 
 logger = get_logger(__name__)
 config = get_config()
@@ -357,10 +360,13 @@ class ClassificationLLM:
 
         return validated_answer
 
-    async def unambiguous_soc_code(
+    async def unambiguous_soc_code(  # noqa: PLR0913
         self,
-        respondent_data: dict[str, Any],
+        industry_descr: str,
         semantic_search_results: list[dict],
+        job_title: str | None = None,
+        job_description: str | None = None,
+        level_of_education: str | None = None,
         candidates_limit: int = config["llm"]["candidates_limit"],
         code_digits: int = config["llm"]["code_digits"],
         correlation_id: str | None = None,
@@ -370,6 +376,13 @@ class ClassificationLLM:
             short_list=semantic_search_results,
             code_digits=code_digits,
             candidates_limit=candidates_limit,
+        )
+
+        respondent_data = respondent_data_to_dict(
+            industry_descr=industry_descr,
+            job_title=job_title,
+            job_description=job_description,
+            level_of_education=level_of_education,
         )
 
         call_dict = {
@@ -470,16 +483,22 @@ class ClassificationLLM:
 
         return validated_answer, call_dict
 
-    async def formulate_open_question(
+    async def formulate_open_question(  # noqa: PLR0913
         self,
-        respondent_data: dict[str, Any],
+        industry_descr: str,
+        job_title: str | None = None,
+        job_description: str | None = None,
+        level_of_education: str | None = None,
         llm_output: RagCandidate | None = None,
         correlation_id: str | None = None,
     ) -> tuple[OpenFollowUp, Any]:
         """Formulates an open-ended question using respondent data and survey design guidelines.
 
         Args:
-            respondent_data (dict): A dictionary containing responses collected from respondent.
+            industry_descr (str): The description of the industry.
+            job_title (str, optional): The job title. Defaults to None.
+            job_description (str, optional): The job description. Defaults to None.
+            level_of_education (str, optional): The level od education. Defaults to None.
             llm_output (RagCandidate, optional): The response from the LLM model.
             correlation_id (str, optional): Optional correlation ID for request tracking.
 
@@ -492,6 +511,13 @@ class ClassificationLLM:
                 not loaded correctly.
 
         """
+        respondent_data = respondent_data_to_dict(
+            industry_descr=industry_descr,
+            job_title=job_title,
+            job_description=job_description,
+            level_of_education=level_of_education,
+        )
+
         call_dict = {
             "respondent_data": respondent_data,
             "llm_output": str(llm_output),

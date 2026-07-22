@@ -443,12 +443,10 @@ async def test_llm_response_mocked_unambiguous_soc_code(
 ):
     """Mocked unambiguous_soc_code returns typed response and call dict."""
     result = await classification_llm_with_soc_unambiguous.unambiguous_soc_code(
+        industry_descr="",
         semantic_search_results=[],
-        respondent_data={
-            "industry_descr": "",
-            "job_description": "",
-            "job_title": "",
-        },
+        job_description="",
+        job_title="",
     )
     assert isinstance(result[0], UnambiguousResponse)
     assert isinstance(result[1], dict)
@@ -461,12 +459,10 @@ async def test_unambiguous_soc_code_followup_is_str(
     """Reasoning on the unambiguous response is a string."""
     result = (
         await classification_llm_with_soc_unambiguous.unambiguous_soc_code(
+            industry_descr="school",
             semantic_search_results=[{"title": "Teaching", "code": "1111"}],
-            respondent_data={
-                "industry_descr": "school",
-                "job_title": "teacher",
-                "job_description": "educate kids",
-            },
+            job_title="teacher",
+            job_description="educate kids",
         )
     )[0].reasoning
     assert isinstance(result, str)
@@ -499,12 +495,10 @@ async def test_llm_response_mocked_formulate_open_question(
     )
 
     result = await prompt_candidate_soc.formulate_open_question(
-        respondent_data={
-            "industry_descr": "",
-            "job_title": "",
-            "job_description": "",
-            "level_of_education": "",
-        },
+        industry_descr="",
+        job_title="",
+        job_description="",
+        level_of_education="",
         llm_output="",
     )
     assert isinstance(result[0], OpenFollowUp)
