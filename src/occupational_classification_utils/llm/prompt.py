@@ -281,7 +281,8 @@ between the shortlisted SOC candidates, focusing on the respondent's job and the
 employer's context where relevant.
 
 Inputs
-{respondent_data}
+- Respondent data:
+    {respondent_data}
 - Shortlist from previous model: {llm_output}
 - Note: These are candidate occupational categories; do not mention codes or "SOC"
 to the respondent.
