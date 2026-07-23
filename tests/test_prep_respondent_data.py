@@ -57,12 +57,12 @@ def test_all_fields(education, jd, jt, ind, expected):
         ("unknown", "unknown", "unknown", "unknown", {}),
         ("", "", "", "", {}),
         (" ", " ", " ", " ", {}),
-        ("-8", "-8", "-8", "-8", {}),
-        ("-9", "-9", "-9", "-9", {}),
+        (" ", "-8", "-8", "-8", {}),
+        ("", "-9", "-9", "-9", {}),
     ],
 )
 def test_answer_not_provided(education, jd, jt, ind, expected):
-    """Test case with no answers provided (marked as None, "unknown", "", "-8", or "-9").
+    """Test case with no answers provided (marked as None, "unknown", "", " ", "-8", or "-9", for education None, "unknown", "", " ").
     Expecting returning empty dictionaries.
     """
     result = respondent_data_to_dict(
@@ -79,9 +79,9 @@ def test_answer_not_provided(education, jd, jt, ind, expected):
     "education, jd, jt, ind, expected",
     [
         ("edu1", "-9", "", "unknown", {"Level of education": "edu1"}),
-        ("-9", "jd2", "", "unknown", {"Job description": "jd2"}),
-        ("-9", "", "jt3", "unknown", {"Job title": "jt3"}),
-        ("-9", "", "unknown", "ind4", {"Company main activity": "ind4"}),
+        ("", "jd2", "", "unknown", {"Job description": "jd2"}),
+        ("", "", "jt3", "unknown", {"Job title": "jt3"}),
+        (None, "", "unknown", "ind4", {"Company main activity": "ind4"}),
     ],
 )
 def test_some_answers_provided(education, jd, jt, ind, expected):
