@@ -34,3 +34,18 @@ def respondent_data_to_dict(
         respondent_data["Level of education"] = level_of_education
 
     return respondent_data
+
+
+def respondent_data_to_multiline_string(respondent_data: dict) -> str:
+    """Allows to convert a dictionary with respondent data to a multiline string,
+    such as:
+        - Job title: Nurse
+        - Job description: I provide medical help to patients in a hospital.
+
+    Args:
+        respondent_data (dict): A dictionary containing data collected from the user.
+
+    Returns:
+        str: dictionary converted to a multiline string.
+    """
+    return "\n".join(f"-{k}: {v}" for k, v in respondent_data.items())

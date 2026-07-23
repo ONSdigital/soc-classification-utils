@@ -4,6 +4,7 @@ import pytest
 
 from occupational_classification_utils.utils.prep_respondent_data import (
     respondent_data_to_dict,
+    respondent_data_to_multiline_string,
 )
 
 
@@ -11,12 +12,12 @@ from occupational_classification_utils.utils.prep_respondent_data import (
     "education, jd, jt, ind, expected",
     [
         (
-            -9,
+            "ed1",
             "jd1",
             "jt1",
             "ind1",
             {
-                "Level of education": -9,
+                "Level of education": "ed1",
                 "Job description": "jd1",
                 "Job title": "jt1",
                 "Company main activity": "ind1",
@@ -96,3 +97,30 @@ def test_some_answers_provided(education, jd, jt, ind, expected):
     )
 
     assert expected == result
+
+
+@pytest.mark.parametrize(
+    "respondent_dictionary, expected",
+    [
+        (
+            {
+                "Level of education": "ed1",
+                "Job description": "jd1",
+                "Job title": "jt1",
+                "Company main activity": "ind1",
+            },
+            """-Level of education: ed1
+-Job description: jd1
+-Job title: jt1
+-Company main activity: ind1""",
+        ),
+        ({"Level of education": "edu1"}, "-Level of education: edu1"),
+        ({}, ""),
+    ],
+)
+def test_converts_to_string(respondent_dictionary, expected):
+    """Test if outputs are strings."""
+    result = respondent_data_to_multiline_string(respondent_dictionary)
+
+    assert expected == result
+    assert isinstance(result, str)
