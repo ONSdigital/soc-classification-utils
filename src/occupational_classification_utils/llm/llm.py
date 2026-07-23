@@ -51,6 +51,7 @@ from occupational_classification_utils.models.response_model import (
 from occupational_classification_utils.utils.constants import truncate_identifier
 from occupational_classification_utils.utils.prep_respondent_data import (
     respondent_data_to_dict,
+    respondent_data_to_multiline_string,
 )
 
 logger = get_logger(__name__)
@@ -384,9 +385,12 @@ class ClassificationLLM:
             job_description=job_description,
             level_of_education=level_of_education,
         )
+        respondent_data_string = respondent_data_to_multiline_string(
+            respondent_data=respondent_data
+        )
 
         call_dict = {
-            "respondent_data": respondent_data,
+            "respondent_data": respondent_data_string,
             "soc_candidates": soc_candidates,
         }
 
@@ -518,8 +522,12 @@ class ClassificationLLM:
             level_of_education=level_of_education,
         )
 
+        respondent_data_string = respondent_data_to_multiline_string(
+            respondent_data=respondent_data
+        )
+
         call_dict = {
-            "respondent_data": respondent_data,
+            "respondent_data": respondent_data_string,
             "llm_output": str(llm_output),
         }
 

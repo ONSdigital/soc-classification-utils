@@ -452,6 +452,47 @@ async def test_llm_response_mocked_unambiguous_soc_code(
     assert isinstance(result[1], dict)
 
 
+@pytest.mark.parametrize(
+    "title",
+    [
+        (""),
+        (" "),
+        (None),
+    ],
+)
+@pytest.mark.llm
+async def test_unambiguous_soc_code_call_dict_job_title_not_collected(
+    title,
+    classification_llm_with_soc_unambiguous,
+):
+    """Job title not in call dict when not provided."""
+    result = (
+        await classification_llm_with_soc_unambiguous.unambiguous_soc_code(
+            "school",
+            [{"title": "Teaching", "code": "1111"}],
+            title,
+            "educate kids",
+        )
+    )[1]
+    assert "Job title" not in result
+
+
+@pytest.mark.llm
+async def test_unambiguous_soc_code_call_dict_job_title_correct(
+    classification_llm_with_soc_unambiguous,
+):
+    """Job title in call dict when provided."""
+    result = (
+        await classification_llm_with_soc_unambiguous.unambiguous_soc_code(
+            "school",
+            [{"title": "Teaching", "code": "1111"}],
+            "teacher",
+            "educate kids",
+        )
+    )[1]
+    assert "teacher" in str(result)
+
+
 @pytest.mark.llm
 async def test_unambiguous_soc_code_followup_is_str(
     classification_llm_with_soc_unambiguous,
