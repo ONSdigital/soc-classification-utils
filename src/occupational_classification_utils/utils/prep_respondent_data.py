@@ -13,7 +13,7 @@ def respondent_data_to_dict(
             industry_descr (str): The description of the industry.
             job_title (str, optional): The job title. Defaults to None.
             job_description (str, optional): The job description. Defaults to None.
-            level_of_education (str, optional): The level od education. Defaults to None.
+            level_of_education (str, optional): The level of education. Defaults to None.
 
     Returns:
         dict: A dictionary containing responses collected from respondent.
