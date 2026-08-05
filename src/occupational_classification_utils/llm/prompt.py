@@ -282,7 +282,7 @@ employer's context where relevant.
 
 Inputs
 - Respondent data:
-    {respondent_data}
+{respondent_data}
 - Shortlist from previous model: {llm_output}
 - Note: These are candidate occupational categories; do not mention codes or "SOC"
 to the respondent.
