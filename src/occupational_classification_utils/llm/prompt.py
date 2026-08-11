@@ -41,7 +41,7 @@ _core_prompt = """You are a conscientious classification assistant of respondent
 for the use in the UK official statistics. Respondent data may be in English or Welsh,
 but you always respond in British English."""
 
-_soc_template = """"Given the respondent data (that may include all or some of
+_soc_template = """Given the respondent data (that may include all or some of
 job title, job description, level of education, line management responsibilities,
 and company's main activity) your task is to determine
 the UK SOC (Standard Occupational Classification) code for this job if it can be
@@ -78,7 +78,7 @@ SOC_PROMPT_PYDANTIC = PromptTemplate.from_template(
 )
 
 
-_sa_soc_template_rag = """"Given the respondent's description of the main activity their
+_sa_soc_template_rag = """Given the respondent's description of the main activity their
 company does, their job title and job description (which may be different to the
 main company activity), your task is to determine a list of the most likely UK SOC
 (Standard Occupational Classification) codes for this individual.
@@ -128,7 +128,7 @@ SA_SOC_PROMPT_RAG = PromptTemplate.from_template(
 )
 
 
-_general_template_rag = """"Given the respondent's data, your task is to determine
+_general_template_rag = """Given the respondent's data, your task is to determine
 the classification code. Make sure to use the provided Relevant subset of
 classification index and select codes from this list only.
 If the code cannot be determined (or not included in the provided subset),
@@ -173,7 +173,7 @@ If the output is not valid JSON, you must fix it without altering the intended m
 """
 )
 
-_soc_template_unambiguous = """"You are an expert in occupational classifications.
+_soc_template_unambiguous = """You are an expert in occupational classifications.
 You are tasked with determining whether a survey response can be assigned to a
 single four-digit UK Standard Occupational Classification (SOC 2020) unit group
 based on initial respondent data alone.
@@ -196,10 +196,7 @@ Follow these steps in order:
 5. Provide reasoning for your decision.
 
 ===Respondent Data===
-- Company's main activity: {industry_descr}
-- Job Title: {job_title}
-- Job Description: {job_description}
-- Level of Education: {level_of_education}
+{respondent_data}
 
 ===Shortlist===
 {soc_candidates}
@@ -218,7 +215,7 @@ SOC_PROMPT_UNAMBIGUOUS = PromptTemplate.from_template(
     },
 )
 
-_soc_template_top_one_only = """"You are an expert in occupational classifications.
+_soc_template_top_one_only = """You are an expert in occupational classifications.
 You are tasked with selecting the single most likely four-digit UK Standard
 Occupational Classification (SOC 2020) unit group from a shortlist of relevant
 candidates.
@@ -274,7 +271,7 @@ SOC_PROMPT_TOP_ONE_ONLY = PromptTemplate.from_template(
     },
 )
 
-_open_follow_up = """"You are an expert survey methodologist specialising in
+_open_follow_up = """You are an expert survey methodologist specialising in
 UK occupational classification (SOC 2020). Generate one open-ended follow-up question
 to help assign the most relevant four-digit SOC unit group.
 
@@ -285,10 +282,7 @@ employer's context where relevant.
 
 Inputs
 - Respondent data:
-- Company's main activity: {industry_descr}
-- Job title: {job_title}
-- Job description: {job_description}
-- Level of Education: {level_of_education}
+{respondent_data}
 - Shortlist from previous model: {llm_output}
 - Note: These are candidate occupational categories; do not mention codes or "SOC"
 to the respondent.

@@ -453,21 +453,19 @@ async def test_llm_response_mocked_unambiguous_soc_code(
 
 
 @pytest.mark.parametrize(
-    "title, expected_job_title",
+    "title",
     [
-        ("", "Unknown"),
-        (" ", "Unknown"),
-        (None, "Unknown"),
-        ("teacher", "teacher"),
+        (""),
+        (" "),
+        (None),
     ],
 )
 @pytest.mark.llm
-async def test_unambiguous_soc_code_call_dict_job_title_correct(
+async def test_unambiguous_soc_code_call_dict_job_title_not_collected(
     title,
-    expected_job_title,
     classification_llm_with_soc_unambiguous,
 ):
-    """job_title in call dict matches normalisation rules."""
+    """Job title not in call dict when not provided."""
     result = (
         await classification_llm_with_soc_unambiguous.unambiguous_soc_code(
             "school",
@@ -475,8 +473,24 @@ async def test_unambiguous_soc_code_call_dict_job_title_correct(
             title,
             "educate kids",
         )
-    )[1]["job_title"]
-    assert result == expected_job_title
+    )[1]
+    assert "Job title" not in result
+
+
+@pytest.mark.llm
+async def test_unambiguous_soc_code_call_dict_job_title_correct(
+    classification_llm_with_soc_unambiguous,
+):
+    """Job title in call dict when provided."""
+    result = (
+        await classification_llm_with_soc_unambiguous.unambiguous_soc_code(
+            "school",
+            [{"title": "Teaching", "code": "1111"}],
+            "teacher",
+            "educate kids",
+        )
+    )[1]
+    assert "teacher" in str(result)
 
 
 @pytest.mark.llm
