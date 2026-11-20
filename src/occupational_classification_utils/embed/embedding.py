@@ -55,7 +55,8 @@ class CustomVertexAIEmbeddings(VertexAIEmbeddings):
         *,
         embeddings_task_type="SEMANTIC_SIMILARITY",
     ) -> list[list[float]]:
-        """Embeds a list of documents using the specified task type."""
+        """Embeds a list of documents using the specified task type.
+        batch_size will no longer work with updated langchain versions."""
         return super().embed_documents(
             texts,
             batch_size=batch_size,
