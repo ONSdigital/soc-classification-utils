@@ -19,6 +19,7 @@ from autocorrect import Speller
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_google_vertexai import VertexAIEmbeddings
+from langchain_google_vertexai.embeddings import EmbeddingTaskTypes
 from langchain_huggingface import HuggingFaceEmbeddings
 from occupational_classification.data_access.soc_data_access import load_soc_hierarchy
 from occupational_classification.hierarchy.soc_hierarchy import SOC
@@ -51,22 +52,36 @@ class CustomVertexAIEmbeddings(VertexAIEmbeddings):
     def embed_documents(
         self,
         texts: list[str],
-        batch_size: int = 0,
+        batch_size: int = 5,
         *,
-        embeddings_task_type="SEMANTIC_SIMILARITY",
+        embeddings_task_type: EmbeddingTaskTypes = "SEMANTIC_SIMILARITY",
     ) -> list[list[float]]:
-        """Embeds a list of documents using the specified task type."""
-        return super().embed_documents(
-            texts,
-            batch_size=batch_size,
-            embeddings_task_type=embeddings_task_type,
-        )
+        """Embeds a list of documents using the specified task type.
+
+        Args:
+            texts: Documents to embed.
+            batch_size: Texts per request. This does not support the adaptive
+                batching used by older Vertex integrations.
+            embeddings_task_type: The task type for embeddings.
+        """
+        if batch_size <= 0:
+            raise ValueError("batch_size must be greater than zero")
+        vectors: list[list[float]] = []
+        for start in range(0, len(texts), batch_size):
+            batch = texts[start : start + batch_size]
+            vectors.extend(
+                super().embed_documents(
+                    batch,
+                    embeddings_task_type=embeddings_task_type,
+                )
+            )
+        return vectors
 
     def embed_query(
         self,
         text: str,
         *,
-        embeddings_task_type="SEMANTIC_SIMILARITY",
+        embeddings_task_type: EmbeddingTaskTypes = "SEMANTIC_SIMILARITY",
     ) -> list[float]:
         """Embeds a single query using the specified task type."""
         return super().embed_query(text, embeddings_task_type=embeddings_task_type)

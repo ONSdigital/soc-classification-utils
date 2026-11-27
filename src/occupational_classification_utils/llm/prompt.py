@@ -22,8 +22,8 @@ Attributes:
 
 # pylint: disable=invalid-name # Need to clean up the code to remove this
 
-from langchain.prompts.prompt import PromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.prompts import PromptTemplate
 from occupational_classification.data_access.soc_data_access import load_soc_index
 
 from occupational_classification_utils.embed.embedding import get_config
